@@ -48,8 +48,8 @@
         </div>
         
         <div class="mode-switch">
-            <button id="btnManual" class="mode-btn active" onclick="setMode('manual')">🖐 THỦ CÔNG</button>
-            <button id="btnAuto" class="mode-btn" onclick="setMode('auto')">⏳ TỰ ĐỘNG</button>
+            <button id="btnManual" class="mode-btn active" onclick="setMode('manual', true)">🖐 THỦ CÔNG</button>
+            <button id="btnAuto" class="mode-btn" onclick="setMode('auto', true)">⏳ TỰ ĐỘNG</button>
         </div>
         <button id="btnFeedNow" class="btn-feed" onclick="feedFish(false)">CHO ĂN NGAY</button>
         <div class="timer-box">
@@ -77,17 +77,23 @@
             return now;
         }
 
-        function setMode(mode) {
+        function setMode(mode, sendToServer = false) {
             currentMode = mode;
             document.getElementById('btnManual').classList.toggle('active', mode === 'manual');
             document.getElementById('btnAuto').classList.toggle('active', mode === 'auto');
             const feedBtn = document.getElementById('btnFeedNow');
+            
             if(mode === 'auto') {
                 feedBtn.disabled = true; feedBtn.innerText = "ĐANG Ở CHẾ ĐỘ TỰ ĐỘNG";
                 addLog("Chuyển sang chế độ TỰ ĐỘNG.");
             } else {
                 feedBtn.disabled = false; feedBtn.innerText = "CHO ĂN NGAY";
                 addLog("Chuyển sang chế độ THỦ CÔNG.");
+            }
+
+            // Nếu người dùng bấm trên web thì gửi tín hiệu lên server/MQTT
+            if (sendToServer) {
+                fetch('/set-mode/' + mode.toUpperCase());
             }
         }
 
@@ -107,12 +113,19 @@
         function addSchedule() {
             const timeVal = document.getElementById('timeInput').value;
             if (timeVal && !schedules.includes(timeVal)) {
-                schedules.push(timeVal); updateScheduleUI(); addLog(`Đã thêm lịch cho ăn lúc ${timeVal}`);
+                schedules.push(timeVal); 
+                updateScheduleUI(); 
+                addLog(`Đã thêm lịch cho ăn lúc ${timeVal}`);
+                
+                // Gửi giờ hẹn lên server
+                fetch('/set-time/' + timeVal.replace(':', '-'));
             }
         }
 
         function removeSchedule(timeVal) {
-            schedules = schedules.filter(t => t !== timeVal); updateScheduleUI(); addLog(`Đã xóa lịch lúc ${timeVal}`);
+            schedules = schedules.filter(t => t !== timeVal); 
+            updateScheduleUI(); 
+            addLog(`Đã xóa lịch lúc ${timeVal}`);
         }
 
         function updateScheduleUI() {
@@ -123,28 +136,40 @@
             });
         }
 
-        // Lấy % thức ăn từ Node.js mỗi 3 giây
-        // Lấy % thức ăn từ Node.js
-setInterval(() => {
-    fetch('/food-level')
-        .then(res => res.text())
-        .then(level => {
-            const progress = document.getElementById('foodProgress');
-            const warning = document.getElementById('warningText');
-            progress.style.width = level + "%";
-            progress.innerText = level + "%";
+        // Đồng bộ dữ liệu và trạng thái từ Server mỗi 3 giây
+        setInterval(() => {
+            // 1. Lấy % thức ăn
+            fetch('/food-level')
+                .then(res => res.text())
+                .then(level => {
+                    const progress = document.getElementById('foodProgress');
+                    const warning = document.getElementById('warningText');
+                    progress.style.width = level + "%";
+                    progress.innerText = level + "%";
 
-            // Đổi ngưỡng cảnh báo thành 25
-            if (parseInt(level) <= 25) {
-                progress.style.background = "#dc3545"; 
-                warning.style.display = "block";
-                warning.innerText = "⚠️ CẢNH BÁO: Thức ăn dưới 25%!"; // Cập nhật chữ hiển thị
-            } else {
-                progress.style.background = "#28a745"; 
-                warning.style.display = "none";
-            }
-        });
-}, 3000);
+                    if (parseInt(level) <= 25) {
+                        progress.style.background = "#dc3545"; 
+                        warning.style.display = "block";
+                        warning.innerText = "⚠️ CẢNH BÁO: Thức ăn dưới 25%!"; 
+                    } else {
+                        progress.style.background = "#28a745"; 
+                        warning.style.display = "none";
+                    }
+                });
+
+            // 2. Lấy trạng thái chế độ từ Server (nếu thay đổi từ App điện thoại)
+            fetch('/status')
+                .then(res => res.json())
+                .then(data => {
+                    if (data.mode) {
+                        const serverMode = data.mode.toLowerCase(); // 'auto' hoặc 'manual'
+                        if (serverMode !== currentMode) {
+                            setMode(serverMode, false); // Cập nhật giao diện theo điện thoại mà không gửi ngược lại lặp vô tận
+                        }
+                    }
+                })
+                .catch(err => {});
+        }, 3000);
 
         setInterval(() => {
             const now = updateClock();
@@ -153,6 +178,7 @@ setInterval(() => {
                 feedFish(true); lastFedTime = currentTimeStr;
             }
         }, 1000);
+        
         updateClock();
     </script>
 </body>
