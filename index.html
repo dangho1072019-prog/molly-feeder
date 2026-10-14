@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <title>Quản Lý Bể Cá Molly</title>
+    <style>
+        body { text-align: center; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin-top: 30px; background-color: #ffd1dc; display: flex; justify-content: center;}
+        .container { background: white; padding: 30px; border-radius: 15px; box-shadow: 0 8px 16px rgba(0,0,0,0.1); width: 450px; }
+        h1 { color: #ff6b81; font-size: 26px; margin-bottom: 5px; }
+        #clock { font-size: 32px; font-weight: bold; color: #555; margin-bottom: 15px; letter-spacing: 2px; }
+        
+        /* CSS Thanh phần trăm thức ăn */
+        .food-box { background: #f8f9fa; border: 1px solid #ffb6c1; border-radius: 8px; padding: 15px; margin-bottom: 20px; }
+        .food-bar-bg { background: #e9ecef; border-radius: 20px; height: 25px; width: 100%; overflow: hidden; margin-top: 10px; border: 1px solid #ccc;}
+        .food-bar-fill { background: #28a745; height: 100%; width: 100%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; transition: width 0.5s, background 0.5s; }
+        .warning-text { color: red; font-weight: bold; font-size: 14px; margin-top: 10px; display: none; }
+
+        .mode-switch { display: flex; margin-bottom: 20px; border-radius: 8px; overflow: hidden; border: 2px solid #ff6b81; }
+        .mode-btn { flex: 1; padding: 12px; border: none; cursor: pointer; font-weight: bold; font-size: 16px; background: white; color: #ff6b81; transition: 0.3s;}
+        .mode-btn.active { background: #ff6b81; color: white; }
+        .btn-feed { padding: 15px 30px; font-size: 18px; font-weight: bold; background-color: #28a745; color: white; border: none; border-radius: 8px; cursor: pointer; width: 100%; margin-bottom: 20px; transition: 0.2s;}
+        .btn-feed:active { background-color: #218838; }
+        .btn-feed:disabled { background-color: #ccc; cursor: not-allowed; color: #666; } 
+        .timer-box { border-top: 2px dashed #ffb6c1; padding-top: 15px; margin-top: 10px; text-align: left; }
+        input[type="time"] { padding: 8px; font-size: 16px; border-radius: 5px; border: 1px solid #ccc; outline: none; }
+        .btn-add { padding: 9px 15px; font-size: 16px; background-color: #74b9ff; color: white; border: none; border-radius: 5px; cursor: pointer; float: right; }
+        ul { list-style-type: none; padding: 0; }
+        li { background: #f8f9fa; margin: 8px 0; padding: 10px; border-radius: 5px; font-weight: bold; display: flex; justify-content: space-between; border-left: 4px solid #74b9ff; }
+        .btn-delete { background: #ff7675; color: white; border: none; padding: 5px 10px; border-radius: 3px; cursor: pointer; font-size: 12px; }
+        .log-box { border: 1px solid #ffb6c1; border-radius: 8px; margin-top: 25px; overflow: hidden; background: #fffafb; text-align: left; }
+        .log-header { background: #ffb6c1; color: white; padding: 10px; font-weight: bold; text-align: center; font-size: 15px;}
+        .log-content { height: 160px; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 8px; font-size: 14px;}
+        .msg-sys { padding: 8px 12px; border-radius: 8px; background: #ffeaa7; color: #d35400; align-self: flex-start; max-width: 90%; line-height: 1.4; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Bể Cá Molly 🐠</h1>
+        <div id="clock">00:00:00</div>
+
+        <!-- Khung giám sát thức ăn -->
+        <div class="food-box">
+            <h3 style="margin: 0; color: #555; font-size: 16px;">📊 Lượng Thức Ăn Còn Lại</h3>
+            <div class="food-bar-bg">
+                <div id="foodProgress" class="food-bar-fill">100%</div>
+            </div>
+            <div id="warningText" class="warning-text">⚠️ CẢNH BÁO: Thức ăn sắp hết!</div>
+        </div>
+        
+        <div class="mode-switch">
+            <button id="btnManual" class="mode-btn active" onclick="setMode('manual')">🖐 THỦ CÔNG</button>
+            <button id="btnAuto" class="mode-btn" onclick="setMode('auto')">⏳ TỰ ĐỘNG</button>
+        </div>
+        <button id="btnFeedNow" class="btn-feed" onclick="feedFish(false)">CHO ĂN NGAY</button>
+        <div class="timer-box">
+            <h3 style="color: #555; font-size: 16px;">⏰ Lịch Cho Ăn Tự Động</h3>
+            <input type="time" id="timeInput">
+            <button class="btn-add" onclick="addSchedule()">Thêm Giờ</button>
+            <ul id="scheduleList"></ul>
+        </div>
+        <div class="log-box">
+            <div class="log-header">📋 Nhật Ký Hoạt Động</div>
+            <div class="log-content" id="logContent">
+                <div class="msg-sys">Hệ thống đã khởi động thành công!</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let schedules = []; 
+        let currentMode = 'manual'; 
+        let lastFedTime = ""; 
+
+        function updateClock() {
+            const now = new Date();
+            document.getElementById('clock').innerText = now.toLocaleTimeString('vi-VN', { hour12: false });
+            return now;
+        }
+
+        function setMode(mode) {
+            currentMode = mode;
+            document.getElementById('btnManual').classList.toggle('active', mode === 'manual');
+            document.getElementById('btnAuto').classList.toggle('active', mode === 'auto');
+            const feedBtn = document.getElementById('btnFeedNow');
+            if(mode === 'auto') {
+                feedBtn.disabled = true; feedBtn.innerText = "ĐANG Ở CHẾ ĐỘ TỰ ĐỘNG";
+                addLog("Chuyển sang chế độ TỰ ĐỘNG.");
+            } else {
+                feedBtn.disabled = false; feedBtn.innerText = "CHO ĂN NGAY";
+                addLog("Chuyển sang chế độ THỦ CÔNG.");
+            }
+        }
+
+        function addLog(text) {
+            const logBox = document.getElementById('logContent');
+            const time = new Date().toLocaleTimeString('vi-VN', { hour12: false });
+            logBox.innerHTML += `<div class="msg-sys">[${time}] ${text}</div>`;
+            logBox.scrollTop = logBox.scrollHeight;
+        }
+
+        function feedFish(isAuto = false) {
+            fetch('/feed').then(() => {
+                addLog(`✅ Đã xả thức ăn thành công! (${isAuto ? "Tự động" : "Thủ công"})`);
+            });
+        }
+
+        function addSchedule() {
+            const timeVal = document.getElementById('timeInput').value;
+            if (timeVal && !schedules.includes(timeVal)) {
+                schedules.push(timeVal); updateScheduleUI(); addLog(`Đã thêm lịch cho ăn lúc ${timeVal}`);
+            }
+        }
+
+        function removeSchedule(timeVal) {
+            schedules = schedules.filter(t => t !== timeVal); updateScheduleUI(); addLog(`Đã xóa lịch lúc ${timeVal}`);
+        }
+
+        function updateScheduleUI() {
+            const list = document.getElementById('scheduleList');
+            list.innerHTML = "";
+            schedules.sort().forEach(time => {
+                list.innerHTML += `<li>${time} <button class="btn-delete" onclick="removeSchedule('${time}')">Xóa</button></li>`;
+            });
+        }
+
+        // Lấy % thức ăn từ Node.js mỗi 3 giây
+        // Lấy % thức ăn từ Node.js
+setInterval(() => {
+    fetch('/food-level')
+        .then(res => res.text())
+        .then(level => {
+            const progress = document.getElementById('foodProgress');
+            const warning = document.getElementById('warningText');
+            progress.style.width = level + "%";
+            progress.innerText = level + "%";
+
+            // Đổi ngưỡng cảnh báo thành 25
+            if (parseInt(level) <= 25) {
+                progress.style.background = "#dc3545"; 
+                warning.style.display = "block";
+                warning.innerText = "⚠️ CẢNH BÁO: Thức ăn dưới 25%!"; // Cập nhật chữ hiển thị
+            } else {
+                progress.style.background = "#28a745"; 
+                warning.style.display = "none";
+            }
+        });
+}, 3000);
+
+        setInterval(() => {
+            const now = updateClock();
+            const currentTimeStr = String(now.getHours()).padStart(2, '0') + ":" + String(now.getMinutes()).padStart(2, '0');
+            if (currentMode === 'auto' && schedules.includes(currentTimeStr) && lastFedTime !== currentTimeStr) {
+                feedFish(true); lastFedTime = currentTimeStr;
+            }
+        }, 1000);
+        updateClock();
+    </script>
+</body>
+</html>
