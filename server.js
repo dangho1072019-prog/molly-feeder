@@ -1,8 +1,9 @@
 
 'use strict';
 
-// Molly Cloud Sync - Render + Upstash Redis
-// Yeu cau Node.js 18+, Express va MQTT.
+// MOLLY CLOUD SYNC
+// Luu lich va che do vao Upstash Redis.
+// Tach MQTT topic nhan lenh va topic trang thai.
 
 const express = require('express');
 const mqtt = require('mqtt');
@@ -33,14 +34,19 @@ if (!REDIS_URL.startsWith('https://') || !REDIS_TOKEN) {
   console.error(
     'THIEU UPSTASH_REDIS_REST_URL / UPSTASH_REDIS_REST_TOKEN.'
   );
+
   process.exit(1);
 }
 
+// QUAN TRONG:
+// mode la trang thai GUI XUONG ESP32.
+// modeSet la lenh NHIEN TU APP khac.
 const TOPIC = {
   control: `${MQTT_PREFIX}/control`,
   result: `${MQTT_PREFIX}/feed_result`,
   food: `${MQTT_PREFIX}/food_level`,
   mode: `${MQTT_PREFIX}/mode`,
+  modeSet: `${MQTT_PREFIX}/mode_set`,
   setTime: `${MQTT_PREFIX}/set_time`,
   schedules: `${MQTT_PREFIX}/schedules`
 };
@@ -55,13 +61,13 @@ app.use((req, res, next) => {
   next();
 });
 
-// Kiem tra gio HH:MM.
+// KIEM TRA GIO HH:MM
 function validTime(t) {
   return typeof t === 'string' &&
     /^([01]\d|2[0-3]):[0-5]\d$/.test(t);
 }
 
-// Chuan hoa du lieu doc tu Redis.
+// CHUAN HOA DU LIEU REDIS
 function normalize(value) {
   if (
     !value ||
@@ -72,7 +78,7 @@ function normalize(value) {
     !value.schedules.every(validTime)
   ) {
     throw new Error(
-      'Du lieu luu trong Redis khong hop le: khong duoc ghi de.'
+      'Du lieu luu trong Redis khong hop le.'
     );
   }
 
@@ -87,7 +93,7 @@ function normalize(value) {
   };
 }
 
-// Gui lenh Redis qua REST API.
+// GOI REDIS REST API
 async function redisCommand(...parts) {
   const response = await fetch(REDIS_URL, {
     method: 'POST',
@@ -100,7 +106,9 @@ async function redisCommand(...parts) {
   });
 
   if (!response.ok) {
-    throw new Error(`Upstash HTTP ${response.status}`);
+    throw new Error(
+      `Upstash HTTP ${response.status}`
+    );
   }
 
   const payload = await response.json();
@@ -112,7 +120,7 @@ async function redisCommand(...parts) {
   return payload.result;
 }
 
-// Trang thai chung cua Server.
+// CAC BIEN TRANG THAI
 let settings;
 let client;
 let writeQueue = Promise.resolve();
@@ -125,11 +133,10 @@ const activities = [];
 const pendingFeeds = new Map();
 const confirmedIds = new Set();
 
-// Gui lich va che do tu Cloud xuong ESP32.
+// DONG BO CHE DO VA LICH XUONG ESP32
 function sendSettingsToEsp() {
   if (!client || !client.connected) return;
 
-  // '-' bieu thi danh sach trong.
   client.publish(
     TOPIC.schedules,
     settings.schedules.length
@@ -138,6 +145,7 @@ function sendSettingsToEsp() {
     { qos: 1, retain: true }
   );
 
+  // Chi GUI che do, khong nhan lai nhu lenh.
   client.publish(
     TOPIC.mode,
     settings.mode,
@@ -145,7 +153,7 @@ function sendSettingsToEsp() {
   );
 }
 
-// Luu Redis truoc, sau do moi cap nhat RAM va MQTT.
+// LUU THAY DOI VAO REDIS
 function updateSettings(mutator) {
   const work = writeQueue.then(async () => {
     const draft = {
@@ -173,6 +181,7 @@ function updateSettings(mutator) {
     );
 
     settings = next;
+
     sendSettingsToEsp();
 
     console.log(
@@ -184,13 +193,16 @@ function updateSettings(mutator) {
   });
 
   writeQueue = work.catch(err => {
-    console.error('Update rejected:', err.message);
+    console.error(
+      'Update rejected:',
+      err.message
+    );
   });
 
   return work;
 }
 
-// Nhat ky hoat dong.
+// NHAT KY HOAT DONG
 function addActivity(event) {
   const result = {
     seq: ++activitySeq,
@@ -206,11 +218,11 @@ function addActivity(event) {
   return result;
 }
 
-// Xu ly du lieu nhan tu MQTT.
+// XU LY TIN NHAN MQTT
 function onMqttMessage(topic, raw, packet) {
   const text = raw.toString().trim();
 
-  // Nhan phan tram thuc an.
+  // NHAN PHAN TRAM THUC AN
   if (topic === TOPIC.food) {
     const number = Number(text);
 
@@ -227,7 +239,7 @@ function onMqttMessage(topic, raw, packet) {
     return;
   }
 
-  // Nhan phan hoi da chay dong co.
+  // NHAN XAC NHAN DONG CO
   if (topic === TOPIC.result) {
     let data;
 
@@ -259,8 +271,11 @@ function onMqttMessage(topic, raw, packet) {
       id: data.id,
       status: data.status,
       source:
-        data.source === 'AUTO' ? 'AUTO' : 'MANUAL',
-      time: validTime(data.time) ? data.time : '',
+        data.source === 'AUTO'
+          ? 'AUTO'
+          : 'MANUAL',
+      time:
+        validTime(data.time) ? data.time : '',
       receivedAt: new Date().toISOString()
     });
 
@@ -279,11 +294,13 @@ function onMqttMessage(topic, raw, packet) {
     return;
   }
 
-  // Bo qua MQTT retained cu.
-  // Redis la nguon du lieu chinh.
+  // BO QUA LENH RETAINED CU.
+  // REDIS LA NOI LUU TRANG THAI CHINH.
   if (packet && packet.retain) return;
 
-  if (topic === TOPIC.mode) {
+  // CHI NHAN LENH DOI CHE DO QUA mode_set.
+  // KHONG NHAN LAI TOPIC mode.
+  if (topic === TOPIC.modeSet) {
     if (
       !['AUTO', 'MANUAL'].includes(text) ||
       settings.mode === text
@@ -302,6 +319,7 @@ function onMqttMessage(topic, raw, packet) {
     });
 
   } else if (topic === TOPIC.setTime) {
+
     if (
       !validTime(text) ||
       settings.schedules.includes(text)
@@ -328,7 +346,7 @@ function onMqttMessage(topic, raw, packet) {
   }
 }
 
-// Thong bao khi Redis khong luu duoc.
+// BAO LOI KHI KHONG LUU DUOC CLOUD
 function errorResponse(res, error) {
   console.error(
     'Request failed:',
@@ -342,7 +360,7 @@ function errorResponse(res, error) {
   });
 }
 
-// Kiem tra ma PIN dieu khien.
+// XAC THUC MA PIN
 function requirePin(req, res, next) {
   if (!ADMIN_PIN) return next();
 
@@ -365,7 +383,7 @@ function requirePin(req, res, next) {
   next();
 }
 
-// Trang thai gui cho tat ca Web.
+// TRANG THAI HE THONG
 function status() {
   return {
     mode: settings.mode,
@@ -374,19 +392,20 @@ function status() {
     revision: settings.revision,
     foodLevel,
     foodLevelAt: foodUpdatedAt,
-    mqttConnected: !!(client && client.connected),
+    mqttConnected:
+      !!(client && client.connected),
     storage: 'upstash'
   };
 }
 
-// Giao dien Web.
+// GIAO DIEN WEB
 app.get('/', (req, res) => {
   res.sendFile(
     path.join(__dirname, 'index.html')
   );
 });
 
-// API trang thai.
+// DOC TRANG THAI
 app.get('/api/status', (req, res) => {
   res.json(status());
 });
@@ -397,11 +416,13 @@ app.get('/status', (req, res) => {
 
 app.get('/food-level', (req, res) => {
   res.send(
-    foodLevel == null ? '--' : String(foodLevel)
+    foodLevel == null
+      ? '--'
+      : String(foodLevel)
   );
 });
 
-// API nhat ky.
+// DOC NHAT KY
 app.get('/api/activity', (req, res) => {
   const after = Number(req.query.after) || 0;
 
@@ -412,7 +433,7 @@ app.get('/api/activity', (req, res) => {
   });
 });
 
-// THEM GIO CHO AN.
+// THEM GIO CHO AN
 app.post(
   '/api/schedules',
   requirePin,
@@ -469,7 +490,7 @@ app.post(
   }
 );
 
-// XOA GIO CHO AN.
+// XOA GIO CHO AN
 app.delete(
   '/api/schedules/:time',
   requirePin,
@@ -515,7 +536,7 @@ app.delete(
   }
 );
 
-// CHUYEN CHE DO.
+// CHUYEN CHE DO THU CONG / TU DONG
 app.post(
   '/api/mode',
   requirePin,
@@ -550,7 +571,7 @@ app.post(
   }
 );
 
-// CHO AN THU CONG.
+// LENH CHO AN THU CONG
 async function feed(req, res) {
   if (!client.connected) {
     return res.status(503).json({
@@ -628,9 +649,10 @@ async function feed(req, res) {
   });
 }
 
+// API CHO AN
 app.post('/api/feed', requirePin, feed);
 
-// Ho tro duong dan cu.
+// HO TRO DUONG DAN CU
 app.get('/feed', requirePin, feed);
 
 app.get(
@@ -699,7 +721,7 @@ app.get(
   }
 );
 
-// KHOI DONG CLOUD SERVER.
+// KHOI DONG SERVER
 async function start() {
   const stored = await redisCommand(
     'GET',
@@ -707,7 +729,6 @@ async function start() {
   );
 
   if (stored === null) {
-    // Lan dau tao: MANUAL, chua co lich.
     const first = {
       mode: 'MANUAL',
       schedules: [],
@@ -752,10 +773,12 @@ async function start() {
   client.on('connect', () => {
     console.log('MQTT connected');
 
+    // CHI NHAN LENH mode_set.
+    // KHONG SUBSCRIBE TOPIC mode.
     client.subscribe(
       [
         TOPIC.food,
-        TOPIC.mode,
+        TOPIC.modeSet,
         TOPIC.setTime,
         TOPIC.result
       ],
