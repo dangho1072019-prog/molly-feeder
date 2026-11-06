@@ -1,213 +1,234 @@
 
+'use strict';
+
+// Molly Cloud Sync - Render + Upstash Redis
+// Yeu cau Node.js 18+, Express va MQTT.
+
 const express = require('express');
 const mqtt = require('mqtt');
 const path = require('path');
-const fs = require('fs');
 const crypto = require('crypto');
 
-const app = express();
-const PORT = process.env.PORT || 3001;
-const STATE_FILE = path.join(__dirname, 'molly-state.json');
+const PORT = Number(process.env.PORT) || 3001;
+
+const REDIS_URL =
+  (process.env.UPSTASH_REDIS_REST_URL || '')
+    .replace(/\/$/, '');
+
+const REDIS_TOKEN =
+  process.env.UPSTASH_REDIS_REST_TOKEN || '';
+
+const REDIS_KEY = 'becamolly:settings:v2';
+
+const MQTT_PREFIX =
+  process.env.MOLLY_MQTT_PREFIX || 'molly_tank';
+
 const MAX_SCHEDULES = 20;
 const FEED_TIMEOUT_MS = 15000;
 
+const ADMIN_PIN =
+  process.env.MOLLY_ADMIN_PIN || '';
+
+if (!REDIS_URL.startsWith('https://') || !REDIS_TOKEN) {
+  console.error(
+    'THIEU UPSTASH_REDIS_REST_URL / UPSTASH_REDIS_REST_TOKEN.'
+  );
+  process.exit(1);
+}
+
 const TOPIC = {
-  control: 'molly_tank/control',
-  result: 'molly_tank/feed_result',
-  food: 'molly_tank/food_level',
-  mode: 'molly_tank/mode',
-  setTime: 'molly_tank/set_time',
-  schedules: 'molly_tank/schedules'
+  control: `${MQTT_PREFIX}/control`,
+  result: `${MQTT_PREFIX}/feed_result`,
+  food: `${MQTT_PREFIX}/food_level`,
+  mode: `${MQTT_PREFIX}/mode`,
+  setTime: `${MQTT_PREFIX}/set_time`,
+  schedules: `${MQTT_PREFIX}/schedules`
 };
 
-function validTime(value) {
-  return typeof value === 'string' &&
-    /^([01]\d|2[0-3]):[0-5]\d$/.test(value);
+const app = express();
+
+app.disable('x-powered-by');
+app.use(express.json({ limit: '10kb' }));
+
+app.use((req, res, next) => {
+  res.set('Cache-Control', 'no-store');
+  next();
+});
+
+// Kiem tra gio HH:MM.
+function validTime(t) {
+  return typeof t === 'string' &&
+    /^([01]\d|2[0-3]):[0-5]\d$/.test(t);
 }
 
-function cleanSchedules(values) {
-  if (!Array.isArray(values)) return [];
-
-  return [...new Set(values.filter(validTime))]
-    .sort()
-    .slice(0, MAX_SCHEDULES);
-}
-
-function readState() {
-  try {
-    const data = JSON.parse(
-      fs.readFileSync(STATE_FILE, 'utf8')
+// Chuan hoa du lieu doc tu Redis.
+function normalize(value) {
+  if (
+    !value ||
+    typeof value !== 'object' ||
+    !Array.isArray(value.schedules) ||
+    (value.mode !== 'AUTO' && value.mode !== 'MANUAL') ||
+    value.schedules.length > MAX_SCHEDULES ||
+    !value.schedules.every(validTime)
+  ) {
+    throw new Error(
+      'Du lieu luu trong Redis khong hop le: khong duoc ghi de.'
     );
-
-    return {
-      schedules: cleanSchedules(data.schedules),
-      mode: data.mode === 'AUTO' ? 'AUTO' : 'MANUAL'
-    };
-  } catch (err) {
-    return {
-      schedules: ['08:00'],
-      mode: 'MANUAL'
-    };
   }
+
+  return {
+    mode: value.mode,
+    schedules: [...new Set(value.schedules)].sort(),
+    revision:
+      Number.isSafeInteger(value.revision) &&
+      value.revision >= 0
+        ? value.revision
+        : 0
+  };
 }
 
-const saved = readState();
+// Gui lenh Redis qua REST API.
+async function redisCommand(...parts) {
+  const response = await fetch(REDIS_URL, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${REDIS_TOKEN}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(parts),
+    signal: AbortSignal.timeout(10000)
+  });
 
-let schedules = saved.schedules;
-let currentMode = saved.mode;
-let currentFoodLevel = null;
-let lastFoodLevelAt = null;
+  if (!response.ok) {
+    throw new Error(`Upstash HTTP ${response.status}`);
+  }
+
+  const payload = await response.json();
+
+  if (payload.error) {
+    throw new Error(`Upstash: ${payload.error}`);
+  }
+
+  return payload.result;
+}
+
+// Trang thai chung cua Server.
+let settings;
+let client;
+let writeQueue = Promise.resolve();
+
+let foodLevel = null;
+let foodUpdatedAt = null;
 let activitySeq = 0;
 
 const activities = [];
 const pendingFeeds = new Map();
-const handledResultIds = new Set();
+const confirmedIds = new Set();
 
-function saveState() {
-  fs.writeFileSync(
-    STATE_FILE,
-    JSON.stringify({
-      schedules,
-      mode: currentMode
-    }, null, 2) + '\n'
+// Gui lich va che do tu Cloud xuong ESP32.
+function sendSettingsToEsp() {
+  if (!client || !client.connected) return;
+
+  // '-' bieu thi danh sach trong.
+  client.publish(
+    TOPIC.schedules,
+    settings.schedules.length
+      ? settings.schedules.join(',')
+      : '-',
+    { qos: 1, retain: true }
   );
-}
-
-function publishSchedules() {
-  if (client.connected) {
-    client.publish(
-      TOPIC.schedules,
-      schedules.length ? schedules.join(',') : '-',
-      { qos: 1, retain: true }
-    );
-  }
-}
-
-function addSchedule(time) {
-  if (!validTime(time)) {
-    return {
-      error: 'Giờ phải đúng định dạng HH:MM (00:00–23:59).'
-    };
-  }
-
-  if (schedules.includes(time)) {
-    return { error: 'Giờ này đã tồn tại.' };
-  }
-
-  if (schedules.length >= MAX_SCHEDULES) {
-    return {
-      error: `Chỉ được đặt tối đa ${MAX_SCHEDULES} giờ.`
-    };
-  }
-
-  schedules = cleanSchedules([...schedules, time]);
-
-  saveState();
-  publishSchedules();
-
-  return { schedules };
-}
-
-function deleteSchedule(time) {
-  if (!validTime(time) || !schedules.includes(time)) {
-    return false;
-  }
-
-  schedules = schedules.filter(t => t !== time);
-
-  saveState();
-  publishSchedules();
-
-  return true;
-}
-
-const client = mqtt.connect('mqtt://broker.hivemq.com', {
-  clientId:
-    `molly_web_${crypto.randomBytes(5).toString('hex')}`,
-  reconnectPeriod: 3000
-});
-
-client.on('connect', () => {
-  console.log('Node.js đã kết nối MQTT Broker');
-
-  client.subscribe(
-    [TOPIC.food, TOPIC.mode, TOPIC.setTime, TOPIC.result],
-    { qos: 1 },
-    err => {
-      if (err) {
-        console.error('Lỗi subscribe:', err.message);
-      }
-    }
-  );
-
-  publishSchedules();
 
   client.publish(
     TOPIC.mode,
-    currentMode,
+    settings.mode,
     { qos: 1, retain: true }
   );
-});
+}
 
-client.on('error', err => {
-  console.error('MQTT:', err.message);
-});
+// Luu Redis truoc, sau do moi cap nhat RAM va MQTT.
+function updateSettings(mutator) {
+  const work = writeQueue.then(async () => {
+    const draft = {
+      mode: settings.mode,
+      schedules: [...settings.schedules],
+      revision: settings.revision
+    };
 
+    const next = mutator(draft);
+
+    if (
+      next.mode === settings.mode &&
+      JSON.stringify(next.schedules) ===
+        JSON.stringify(settings.schedules)
+    ) {
+      return settings;
+    }
+
+    next.revision = settings.revision + 1;
+
+    await redisCommand(
+      'SET',
+      REDIS_KEY,
+      JSON.stringify(next)
+    );
+
+    settings = next;
+    sendSettingsToEsp();
+
+    console.log(
+      'Saved to Redis, revision:',
+      settings.revision
+    );
+
+    return settings;
+  });
+
+  writeQueue = work.catch(err => {
+    console.error('Update rejected:', err.message);
+  });
+
+  return work;
+}
+
+// Nhat ky hoat dong.
 function addActivity(event) {
-  const item = {
+  const result = {
     seq: ++activitySeq,
     ...event
   };
 
-  activities.push(item);
+  activities.push(result);
 
   if (activities.length > 100) {
     activities.shift();
   }
 
-  return item;
+  return result;
 }
 
-client.on('message', (topic, message) => {
-  const text = message.toString().trim();
+// Xu ly du lieu nhan tu MQTT.
+function onMqttMessage(topic, raw, packet) {
+  const text = raw.toString().trim();
 
+  // Nhan phan tram thuc an.
   if (topic === TOPIC.food) {
-    const value = Number(text);
+    const number = Number(text);
 
     if (
-      text !== '' &&
-      Number.isFinite(value) &&
-      Number.isInteger(value) &&
-      value >= 0 &&
-      value <= 100
+      text &&
+      Number.isInteger(number) &&
+      number >= 0 &&
+      number <= 100
     ) {
-      currentFoodLevel = value;
-      lastFoodLevelAt = Date.now();
+      foodLevel = number;
+      foodUpdatedAt = Date.now();
     }
 
-  } else if (topic === TOPIC.mode) {
-    const next = text.toUpperCase();
+    return;
+  }
 
-    if (
-      (next === 'MANUAL' || next === 'AUTO') &&
-      next !== currentMode
-    ) {
-      currentMode = next;
-      saveState();
-
-      client.publish(
-        TOPIC.mode,
-        currentMode,
-        { qos: 1, retain: true }
-      );
-    }
-
-  } else if (topic === TOPIC.setTime) {
-    if (validTime(text) && !schedules.includes(text)) {
-      addSchedule(text);
-    }
-
-  } else if (topic === TOPIC.result) {
+  // Nhan phan hoi da chay dong co.
+  if (topic === TOPIC.result) {
     let data;
 
     try {
@@ -219,31 +240,26 @@ client.on('message', (topic, message) => {
     if (
       !data ||
       typeof data.id !== 'string' ||
-      !/^[a-zA-Z0-9_-]{1,80}$/.test(data.id)
+      !/^[a-zA-Z0-9_-]{1,80}$/.test(data.id) ||
+      !['DONE', 'ERROR'].includes(data.status)
     ) {
       return;
     }
 
-    if (
-      data.status !== 'DONE' &&
-      data.status !== 'ERROR'
-    ) {
-      return;
+    if (confirmedIds.has(data.id)) return;
+
+    confirmedIds.add(data.id);
+
+    if (confirmedIds.size > 500) {
+      confirmedIds.clear();
     }
 
-    if (handledResultIds.has(data.id)) return;
-
-    handledResultIds.add(data.id);
-
-    if (handledResultIds.size > 500) {
-      handledResultIds.clear();
-    }
-
-    const result = addActivity({
+    const event = addActivity({
       type: 'feed',
       id: data.id,
       status: data.status,
-      source: data.source === 'AUTO' ? 'AUTO' : 'MANUAL',
+      source:
+        data.source === 'AUTO' ? 'AUTO' : 'MANUAL',
       time: validTime(data.time) ? data.time : '',
       receivedAt: new Date().toISOString()
     });
@@ -251,224 +267,533 @@ client.on('message', (topic, message) => {
     const pending = pendingFeeds.get(data.id);
 
     if (pending) {
-      clearTimeout(pending.timeout);
+      clearTimeout(pending.timer);
       pendingFeeds.delete(data.id);
 
       pending.resolve({
         ok: data.status === 'DONE',
-        event: result
+        event
       });
     }
+
+    return;
   }
-});
 
-app.use(express.json());
+  // Bo qua MQTT retained cu.
+  // Redis la nguon du lieu chinh.
+  if (packet && packet.retain) return;
 
-app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'index.html'));
-});
+  if (topic === TOPIC.mode) {
+    if (
+      !['AUTO', 'MANUAL'].includes(text) ||
+      settings.mode === text
+    ) {
+      return;
+    }
 
-function snapshot() {
+    updateSettings(draft => {
+      draft.mode = text;
+      return draft;
+    }).catch(err => {
+      console.error(
+        'MQTT mode not saved:',
+        err.message
+      );
+    });
+
+  } else if (topic === TOPIC.setTime) {
+    if (
+      !validTime(text) ||
+      settings.schedules.includes(text)
+    ) {
+      return;
+    }
+
+    updateSettings(draft => {
+      if (
+        !draft.schedules.includes(text) &&
+        draft.schedules.length < MAX_SCHEDULES
+      ) {
+        draft.schedules.push(text);
+        draft.schedules.sort();
+      }
+
+      return draft;
+    }).catch(err => {
+      console.error(
+        'MQTT time not saved:',
+        err.message
+      );
+    });
+  }
+}
+
+// Thong bao khi Redis khong luu duoc.
+function errorResponse(res, error) {
+  console.error(
+    'Request failed:',
+    error.message
+  );
+
+  return res.status(503).json({
+    ok: false,
+    message:
+      'Không lưu được dữ liệu Cloud. Vui lòng thử lại; lịch cũ vẫn được giữ.'
+  });
+}
+
+// Kiem tra ma PIN dieu khien.
+function requirePin(req, res, next) {
+  if (!ADMIN_PIN) return next();
+
+  const submitted =
+    req.get('x-molly-pin') || '';
+
+  const a = Buffer.from(submitted);
+  const b = Buffer.from(ADMIN_PIN);
+
+  if (
+    a.length !== b.length ||
+    !crypto.timingSafeEqual(a, b)
+  ) {
+    return res.status(401).json({
+      ok: false,
+      message: 'Mã PIN điều khiển không đúng.'
+    });
+  }
+
+  next();
+}
+
+// Trang thai gui cho tat ca Web.
+function status() {
   return {
-    mode: currentMode,
-    time: schedules[0] || '',
-    schedules,
-    foodLevel: currentFoodLevel,
-    foodLevelAt: lastFoodLevelAt,
-    mqttConnected: client.connected
+    mode: settings.mode,
+    time: settings.schedules[0] || '',
+    schedules: settings.schedules,
+    revision: settings.revision,
+    foodLevel,
+    foodLevelAt: foodUpdatedAt,
+    mqttConnected: !!(client && client.connected),
+    storage: 'upstash'
   };
 }
 
-app.get('/status', (req, res) => {
-  res.json(snapshot());
+// Giao dien Web.
+app.get('/', (req, res) => {
+  res.sendFile(
+    path.join(__dirname, 'index.html')
+  );
 });
 
+// API trang thai.
 app.get('/api/status', (req, res) => {
-  res.json(snapshot());
+  res.json(status());
+});
+
+app.get('/status', (req, res) => {
+  res.json(status());
 });
 
 app.get('/food-level', (req, res) => {
   res.send(
-    currentFoodLevel === null ?
-      '--' : String(currentFoodLevel)
+    foodLevel == null ? '--' : String(foodLevel)
   );
 });
 
+// API nhat ky.
 app.get('/api/activity', (req, res) => {
   const after = Number(req.query.after) || 0;
 
   res.json({
-    events: activities.filter(item => item.seq > after)
+    events: activities.filter(
+      x => x.seq > after
+    )
   });
 });
 
-app.post('/api/schedules', (req, res) => {
-  const time = req.body && req.body.time;
-  const result = addSchedule(time);
+// THEM GIO CHO AN.
+app.post(
+  '/api/schedules',
+  requirePin,
+  async (req, res) => {
+    const time = req.body && req.body.time;
 
-  if (result.error) {
-    return res.status(400).json({
-      ok: false,
-      message: result.error
-    });
+    if (!validTime(time)) {
+      return res.status(400).json({
+        ok: false,
+        message: 'Giờ không hợp lệ (HH:MM).'
+      });
+    }
+
+    try {
+      const next = await updateSettings(draft => {
+        if (draft.schedules.includes(time)) {
+          throw new Error('DUPLICATE');
+        }
+
+        if (draft.schedules.length >= MAX_SCHEDULES) {
+          throw new Error('LIMIT');
+        }
+
+        draft.schedules.push(time);
+        draft.schedules.sort();
+
+        return draft;
+      });
+
+      return res.status(201).json({
+        ok: true,
+        schedules: next.schedules,
+        revision: next.revision,
+        mqttConnected: !!client.connected
+      });
+
+    } catch (err) {
+      if (err.message === 'DUPLICATE') {
+        return res.status(409).json({
+          ok: false,
+          message: 'Giờ đã tồn tại.'
+        });
+      }
+
+      if (err.message === 'LIMIT') {
+        return res.status(400).json({
+          ok: false,
+          message: 'Tối đa 20 giờ.'
+        });
+      }
+
+      return errorResponse(res, err);
+    }
   }
+);
 
-  res.status(201).json({
-    ok: true,
-    schedules,
-    mqttConnected: client.connected
-  });
-});
+// XOA GIO CHO AN.
+app.delete(
+  '/api/schedules/:time',
+  requirePin,
+  async (req, res) => {
+    const time = req.params.time;
 
-app.delete('/api/schedules/:time', (req, res) => {
-  if (!deleteSchedule(req.params.time)) {
-    return res.status(404).json({
-      ok: false,
-      message: 'Không tìm thấy giờ hẹn này.'
-    });
+    if (!validTime(time)) {
+      return res.status(400).json({
+        ok: false,
+        message: 'Giờ không hợp lệ.'
+      });
+    }
+
+    try {
+      const next = await updateSettings(draft => {
+        if (!draft.schedules.includes(time)) {
+          throw new Error('NOT_FOUND');
+        }
+
+        draft.schedules =
+          draft.schedules.filter(x => x !== time);
+
+        return draft;
+      });
+
+      res.json({
+        ok: true,
+        schedules: next.schedules,
+        revision: next.revision,
+        mqttConnected: !!client.connected
+      });
+
+    } catch (err) {
+      if (err.message === 'NOT_FOUND') {
+        return res.status(404).json({
+          ok: false,
+          message: 'Không tìm thấy giờ.'
+        });
+      }
+
+      return errorResponse(res, err);
+    }
   }
+);
 
-  res.json({
-    ok: true,
-    schedules,
-    mqttConnected: client.connected
-  });
-});
+// CHUYEN CHE DO.
+app.post(
+  '/api/mode',
+  requirePin,
+  async (req, res) => {
+    const mode = String(
+      (req.body && req.body.mode) || ''
+    ).toUpperCase();
 
-app.post('/api/mode', (req, res) => {
-  const mode = String(
-    (req.body && req.body.mode) || ''
-  ).toUpperCase();
+    if (!['AUTO', 'MANUAL'].includes(mode)) {
+      return res.status(400).json({
+        ok: false,
+        message: 'Chế độ không hợp lệ.'
+      });
+    }
 
-  if (mode !== 'AUTO' && mode !== 'MANUAL') {
-    return res.status(400).json({
-      ok: false,
-      message: 'Chế độ không hợp lệ.'
-    });
+    try {
+      const next = await updateSettings(draft => {
+        draft.mode = mode;
+        return draft;
+      });
+
+      res.json({
+        ok: true,
+        mode: next.mode,
+        revision: next.revision,
+        mqttConnected: !!client.connected
+      });
+
+    } catch (err) {
+      return errorResponse(res, err);
+    }
   }
+);
 
-  currentMode = mode;
-  saveState();
-
-  if (client.connected) {
-    client.publish(
-      TOPIC.mode,
-      currentMode,
-      { qos: 1, retain: true }
-    );
-  }
-
-  res.json({
-    ok: true,
-    mode: currentMode,
-    mqttConnected: client.connected
-  });
-});
-
-async function requestFeed(req, res) {
+// CHO AN THU CONG.
+async function feed(req, res) {
   if (!client.connected) {
     return res.status(503).json({
       ok: false,
+      message: 'MQTT chưa kết nối.'
+    });
+  }
+
+  if (settings.mode === 'AUTO') {
+    return res.status(409).json({
+      ok: false,
       message:
-        'Server chưa kết nối MQTT; chưa thể gửi lệnh.'
+        'Chuyển sang Thủ công trước khi cho ăn ngay.'
     });
   }
 
   const id = crypto.randomUUID();
 
-  const confirmation = new Promise(resolve => {
-    const timeout = setTimeout(() => {
+  const confirm = new Promise(resolve => {
+    const timer = setTimeout(() => {
       pendingFeeds.delete(id);
 
       resolve({
         ok: false,
         message:
-          'Chưa nhận được xác nhận từ ESP32 trong 15 giây. Kiểm tra ESP32 trước khi thử lại để tránh cho ăn lặp.'
+          'Chưa nhận xác nhận trong 15 giây. Kiểm tra ESP32 trước khi thử lại để tránh xả lặp.'
       });
 
     }, FEED_TIMEOUT_MS);
 
-    pendingFeeds.set(id, { resolve, timeout });
+    pendingFeeds.set(id, {
+      resolve,
+      timer
+    });
   });
 
   client.publish(
     TOPIC.control,
-    `FEED:${id}`,
+    'FEED:' + id,
     { qos: 1 },
     err => {
-      if (err) {
-        const pending = pendingFeeds.get(id);
+      if (!err) return;
 
-        if (pending) {
-          clearTimeout(pending.timeout);
-          pendingFeeds.delete(id);
+      const pending = pendingFeeds.get(id);
 
-          pending.resolve({
-            ok: false,
-            message: 'Không gửi được lệnh MQTT.'
-          });
-        }
+      if (pending) {
+        clearTimeout(pending.timer);
+        pendingFeeds.delete(id);
+
+        pending.resolve({
+          ok: false,
+          message: 'Không gửi được lệnh MQTT.'
+        });
       }
     }
   );
 
-  const result = await confirmation;
+  const result = await confirm;
 
   if (!result.ok) {
     return res.status(504).json({
       ok: false,
       id,
-      message: result.message ||
-        'ESP32 báo không hoàn thành lệnh.'
+      message:
+        result.message || 'ESP32 báo lỗi.'
     });
   }
 
   res.json({
     ok: true,
     id,
-    message: 'ESP32 đã xác nhận động cơ chạy xong.',
-    event: result.event
+    event: result.event,
+    message:
+      'ESP32 báo động cơ đã hoàn thành số bước.'
   });
 }
 
-app.post('/api/feed', requestFeed);
+app.post('/api/feed', requirePin, feed);
 
-app.get('/feed', requestFeed);
+// Ho tro duong dan cu.
+app.get('/feed', requirePin, feed);
 
-app.get('/set-mode/:mode', (req, res) => {
-  const mode = String(req.params.mode).toUpperCase();
+app.get(
+  '/set-mode/:mode',
+  requirePin,
+  async (req, res) => {
+    const mode =
+      String(req.params.mode).toUpperCase();
 
-  if (mode !== 'AUTO' && mode !== 'MANUAL') {
-    return res.status(400).send(
-      'Chế độ không hợp lệ'
+    if (!['AUTO', 'MANUAL'].includes(mode)) {
+      return res.status(400).send(
+        'Chế độ không hợp lệ.'
+      );
+    }
+
+    try {
+      await updateSettings(draft => {
+        draft.mode = mode;
+        return draft;
+      });
+
+      res.send('Đã đổi chế độ: ' + mode);
+
+    } catch (err) {
+      res.status(503).send(
+        'Không lưu được lên Cloud.'
+      );
+    }
+  }
+);
+
+app.get(
+  '/set-time/:time',
+  requirePin,
+  async (req, res) => {
+    const time =
+      req.params.time.replace('-', ':');
+
+    if (!validTime(time)) {
+      return res.status(400).send(
+        'Giờ không hợp lệ.'
+      );
+    }
+
+    try {
+      await updateSettings(draft => {
+        if (!draft.schedules.includes(time)) {
+          if (draft.schedules.length >= MAX_SCHEDULES) {
+            throw new Error('LIMIT');
+          }
+
+          draft.schedules.push(time);
+          draft.schedules.sort();
+        }
+
+        return draft;
+      });
+
+      res.send('Đã lưu giờ: ' + time);
+
+    } catch (err) {
+      res.status(503).send(
+        'Không lưu được lên Cloud.'
+      );
+    }
+  }
+);
+
+// KHOI DONG CLOUD SERVER.
+async function start() {
+  const stored = await redisCommand(
+    'GET',
+    REDIS_KEY
+  );
+
+  if (stored === null) {
+    // Lan dau tao: MANUAL, chua co lich.
+    const first = {
+      mode: 'MANUAL',
+      schedules: [],
+      revision: 0
+    };
+
+    await redisCommand(
+      'SET',
+      REDIS_KEY,
+      JSON.stringify(first)
+    );
+
+    settings = first;
+
+    console.log(
+      'Created a new empty Cloud configuration. Add your desired schedules on the Web.'
+    );
+
+  } else {
+    settings = normalize(
+      JSON.parse(stored)
+    );
+
+    console.log(
+      'Restored schedules and mode from Upstash:',
+      settings
     );
   }
 
-  currentMode = mode;
-  saveState();
+  client = mqtt.connect(
+    process.env.MOLLY_MQTT_URL ||
+      'mqtt://broker.hivemq.com',
+    {
+      clientId:
+        `molly_cloud_${
+          crypto.randomBytes(6).toString('hex')
+        }`,
+      reconnectPeriod: 3000
+    }
+  );
 
-  if (client.connected) {
-    client.publish(
-      TOPIC.mode,
-      mode,
-      { qos: 1, retain: true }
+  client.on('connect', () => {
+    console.log('MQTT connected');
+
+    client.subscribe(
+      [
+        TOPIC.food,
+        TOPIC.mode,
+        TOPIC.setTime,
+        TOPIC.result
+      ],
+      { qos: 1 },
+      err => {
+        if (err) {
+          console.error(
+            'MQTT subscribe failed:',
+            err.message
+          );
+        }
+      }
     );
-  }
 
-  res.send('Đã đổi chế độ: ' + mode);
-});
+    sendSettingsToEsp();
+  });
 
-app.get('/set-time/:time', (req, res) => {
-  const time = req.params.time.replace('-', ':');
-  const result = addSchedule(time);
+  client.on('message', onMqttMessage);
 
-  if (result.error) {
-    return res.status(400).send(result.error);
-  }
+  client.on('error', err => {
+    console.error(
+      'MQTT error:',
+      err.message
+    );
+  });
 
-  res.send('Đã thêm giờ: ' + time);
-});
+  app.listen(PORT, () => {
+    console.log(
+      `Molly Cloud Sync listening on ${PORT}`
+    );
+  });
+}
 
-app.listen(PORT, () => {
-  console.log(`Web server: http://localhost:${PORT}`);
+start().catch(err => {
+  console.error(
+    'KHONG DOC DUOC UPSTASH, DUNG KHOI DONG DE BAO VE LICH:',
+    err.message
+  );
+
+  process.exit(1);
 });
