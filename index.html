@@ -1,185 +1,693 @@
+
 <!DOCTYPE html>
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
     <title>Quản Lý Bể Cá Molly</title>
     <style>
-        body { text-align: center; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin-top: 30px; background-color: #ffd1dc; display: flex; justify-content: center;}
-        .container { background: white; padding: 30px; border-radius: 15px; box-shadow: 0 8px 16px rgba(0,0,0,0.1); width: 450px; }
-        h1 { color: #ff6b81; font-size: 26px; margin-bottom: 5px; }
-        #clock { font-size: 32px; font-weight: bold; color: #555; margin-bottom: 15px; letter-spacing: 2px; }
-        
-        /* CSS Thanh phần trăm thức ăn */
-        .food-box { background: #f8f9fa; border: 1px solid #ffb6c1; border-radius: 8px; padding: 15px; margin-bottom: 20px; }
-        .food-bar-bg { background: #e9ecef; border-radius: 20px; height: 25px; width: 100%; overflow: hidden; margin-top: 10px; border: 1px solid #ccc;}
-        .food-bar-fill { background: #28a745; height: 100%; width: 100%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; transition: width 0.5s, background 0.5s; }
-        .warning-text { color: red; font-weight: bold; font-size: 14px; margin-top: 10px; display: none; }
+        body {
+            text-align: center;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin-top: 30px;
+            background-color: #ffd1dc;
+            display: flex;
+            justify-content: center;
+        }
 
-        .mode-switch { display: flex; margin-bottom: 20px; border-radius: 8px; overflow: hidden; border: 2px solid #ff6b81; }
-        .mode-btn { flex: 1; padding: 12px; border: none; cursor: pointer; font-weight: bold; font-size: 16px; background: white; color: #ff6b81; transition: 0.3s;}
-        .mode-btn.active { background: #ff6b81; color: white; }
-        .btn-feed { padding: 15px 30px; font-size: 18px; font-weight: bold; background-color: #28a745; color: white; border: none; border-radius: 8px; cursor: pointer; width: 100%; margin-bottom: 20px; transition: 0.2s;}
-        .btn-feed:active { background-color: #218838; }
-        .btn-feed:disabled { background-color: #ccc; cursor: not-allowed; color: #666; } 
-        .timer-box { border-top: 2px dashed #ffb6c1; padding-top: 15px; margin-top: 10px; text-align: left; }
-        input[type="time"] { padding: 8px; font-size: 16px; border-radius: 5px; border: 1px solid #ccc; outline: none; }
-        .btn-add { padding: 9px 15px; font-size: 16px; background-color: #74b9ff; color: white; border: none; border-radius: 5px; cursor: pointer; float: right; }
-        ul { list-style-type: none; padding: 0; }
-        li { background: #f8f9fa; margin: 8px 0; padding: 10px; border-radius: 5px; font-weight: bold; display: flex; justify-content: space-between; border-left: 4px solid #74b9ff; }
-        .btn-delete { background: #ff7675; color: white; border: none; padding: 5px 10px; border-radius: 3px; cursor: pointer; font-size: 12px; }
-        .log-box { border: 1px solid #ffb6c1; border-radius: 8px; margin-top: 25px; overflow: hidden; background: #fffafb; text-align: left; }
-        .log-header { background: #ffb6c1; color: white; padding: 10px; font-weight: bold; text-align: center; font-size: 15px;}
-        .log-content { height: 160px; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 8px; font-size: 14px;}
-        .msg-sys { padding: 8px 12px; border-radius: 8px; background: #ffeaa7; color: #d35400; align-self: flex-start; max-width: 90%; line-height: 1.4; }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 8px 16px rgba(0,0,0,0.1);
+            width: 450px;
+        }
+
+        h1 {
+            color: #ff6b81;
+            font-size: 26px;
+            margin-bottom: 5px;
+        }
+
+        #clock {
+            font-size: 32px;
+            font-weight: bold;
+            color: #555;
+            margin-bottom: 15px;
+            letter-spacing: 2px;
+        }
+
+        .food-box {
+            background: #f8f9fa;
+            border: 1px solid #ffb6c1;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+
+        .food-bar-bg {
+            background: #e9ecef;
+            border-radius: 20px;
+            height: 25px;
+            width: 100%;
+            overflow: hidden;
+            margin-top: 10px;
+            border: 1px solid #ccc;
+        }
+
+        .food-bar-fill {
+            background: #28a745;
+            height: 100%;
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            transition: width 0.5s, background 0.5s;
+        }
+
+        .warning-text {
+            color: red;
+            font-weight: bold;
+            font-size: 14px;
+            margin-top: 10px;
+            display: none;
+        }
+
+        .mode-switch {
+            display: flex;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            overflow: hidden;
+            border: 2px solid #ff6b81;
+        }
+
+        .mode-btn {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 16px;
+            background: white;
+            color: #ff6b81;
+            transition: 0.3s;
+        }
+
+        .mode-btn.active {
+            background: #ff6b81;
+            color: white;
+        }
+
+        .btn-feed {
+            padding: 15px 30px;
+            font-size: 18px;
+            font-weight: bold;
+            background-color: #28a745;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            width: 100%;
+            margin-bottom: 20px;
+            transition: 0.2s;
+        }
+
+        .btn-feed:active {
+            background-color: #218838;
+        }
+
+        .btn-feed:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+            color: #666;
+        }
+
+        .timer-box {
+            border-top: 2px dashed #ffb6c1;
+            padding-top: 15px;
+            margin-top: 10px;
+            text-align: left;
+        }
+
+        input[type="time"] {
+            padding: 8px;
+            font-size: 16px;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+            outline: none;
+        }
+
+        .btn-add {
+            padding: 9px 15px;
+            font-size: 16px;
+            background-color: #74b9ff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            float: right;
+        }
+
+        ul {
+            list-style-type: none;
+            padding: 0;
+        }
+
+        li {
+            background: #f8f9fa;
+            margin: 8px 0;
+            padding: 10px;
+            border-radius: 5px;
+            font-weight: bold;
+            display: flex;
+            justify-content: space-between;
+            border-left: 4px solid #74b9ff;
+        }
+
+        .btn-delete {
+            background: #ff7675;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        .log-box {
+            border: 1px solid #ffb6c1;
+            border-radius: 8px;
+            margin-top: 25px;
+            overflow: hidden;
+            background: #fffafb;
+            text-align: left;
+        }
+
+        .log-header {
+            background: #ffb6c1;
+            color: white;
+            padding: 10px;
+            font-weight: bold;
+            text-align: center;
+            font-size: 15px;
+        }
+
+        .log-content {
+            height: 160px;
+            overflow-y: auto;
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            font-size: 14px;
+        }
+
+        .msg-sys {
+            padding: 8px 12px;
+            border-radius: 8px;
+            background: #ffeaa7;
+            color: #d35400;
+            align-self: flex-start;
+            max-width: 90%;
+            line-height: 1.4;
+        }
     </style>
 </head>
+
 <body>
     <div class="container">
+
         <h1>Bể Cá Molly 🐠</h1>
+
         <div id="clock">00:00:00</div>
 
-        <!-- Khung giám sát thức ăn -->
+        <div id="connectionState"
+             style="font-size:13px;color:#666;margin-bottom:12px">
+            Đang kết nối Server...
+        </div>
+
         <div class="food-box">
-            <h3 style="margin: 0; color: #555; font-size: 16px;">📊 Lượng Thức Ăn Còn Lại</h3>
+            <h3 style="margin:0;color:#555;font-size:16px">
+                📊 Lượng Thức Ăn Còn Lại
+            </h3>
+
             <div class="food-bar-bg">
-                <div id="foodProgress" class="food-bar-fill">100%</div>
+                <div id="foodProgress" class="food-bar-fill">
+                    --%
+                </div>
             </div>
-            <div id="warningText" class="warning-text">⚠️ CẢNH BÁO: Thức ăn sắp hết!</div>
+
+            <div id="warningText" class="warning-text">
+                ⚠️ CẢNH BÁO: Thức ăn sắp hết!
+            </div>
         </div>
-        
+
         <div class="mode-switch">
-            <button id="btnManual" class="mode-btn active" onclick="setMode('manual', true)">🖐 THỦ CÔNG</button>
-            <button id="btnAuto" class="mode-btn" onclick="setMode('auto', true)">⏳ TỰ ĐỘNG</button>
+            <button id="btnManual"
+                    class="mode-btn active"
+                    onclick="setMode('manual')">
+                🖐 THỦ CÔNG
+            </button>
+
+            <button id="btnAuto"
+                    class="mode-btn"
+                    onclick="setMode('auto')">
+                ⏳ TỰ ĐỘNG
+            </button>
         </div>
-        <button id="btnFeedNow" class="btn-feed" onclick="feedFish(false)">CHO ĂN NGAY</button>
+
+        <button id="btnFeedNow"
+                class="btn-feed"
+                onclick="feedFish()">
+            CHO ĂN NGAY
+        </button>
+
         <div class="timer-box">
-            <h3 style="color: #555; font-size: 16px;">⏰ Lịch Cho Ăn Tự Động</h3>
+            <h3 style="color:#555;font-size:16px">
+                ⏰ Lịch Cho Ăn Tự Động (tối đa 20 giờ)
+            </h3>
+
             <input type="time" id="timeInput">
-            <button class="btn-add" onclick="addSchedule()">Thêm Giờ</button>
+
+            <button class="btn-add" onclick="addSchedule()">
+                Thêm Giờ
+            </button>
+
             <ul id="scheduleList"></ul>
         </div>
+
         <div class="log-box">
-            <div class="log-header">📋 Nhật Ký Hoạt Động</div>
+            <div class="log-header">
+                📋 Nhật Ký Hoạt Động
+            </div>
+
             <div class="log-content" id="logContent">
-                <div class="msg-sys">Hệ thống đã khởi động thành công!</div>
+                <div class="msg-sys">
+                    Hệ thống đã khởi động thành công!
+                </div>
             </div>
         </div>
+
     </div>
 
     <script>
-        let schedules = []; 
-        let currentMode = 'manual'; 
-        let lastFedTime = ""; 
+        // ESP32 thực hiện lịch tự động.
+        // Web không tự gửi /feed theo đồng hồ.
+
+        let schedules = [];
+        let currentMode = 'manual';
+        let feedPending = false;
+        let lastActivitySeq = 0;
+
+        const shownFeedIds = new Set();
 
         function updateClock() {
-            const now = new Date();
-            document.getElementById('clock').innerText = now.toLocaleTimeString('vi-VN', { hour12: false });
-            return now;
+            document.getElementById('clock').textContent =
+                new Date().toLocaleTimeString('vi-VN', {
+                    hour12: false
+                });
         }
 
-        function setMode(mode, sendToServer = false) {
-            currentMode = mode;
-            document.getElementById('btnManual').classList.toggle('active', mode === 'manual');
-            document.getElementById('btnAuto').classList.toggle('active', mode === 'auto');
-            const feedBtn = document.getElementById('btnFeedNow');
-            
-            if(mode === 'auto') {
-                feedBtn.disabled = true; feedBtn.innerText = "ĐANG Ở CHẾ ĐỘ TỰ ĐỘNG";
-                addLog("Chuyển sang chế độ TỰ ĐỘNG.");
+        async function api(url, options = {}) {
+            let response;
+
+            try {
+                response = await fetch(url, options);
+            } catch {
+                throw new Error(
+                    'Không kết nối được với Web Server.'
+                );
+            }
+
+            let result;
+
+            try {
+                result = await response.json();
+            } catch {
+                throw new Error(
+                    'Server trả về dữ liệu không hợp lệ.'
+                );
+            }
+
+            if (!response.ok || result.ok === false) {
+                throw new Error(
+                    result.message || 'Thao tác không thành công.'
+                );
+            }
+
+            return result;
+        }
+
+        function addLog(message) {
+            const box = document.getElementById('logContent');
+            const item = document.createElement('div');
+
+            item.className = 'msg-sys';
+
+            item.textContent =
+                '[' +
+                new Date().toLocaleTimeString('vi-VN', {
+                    hour12: false
+                }) +
+                '] ' + message;
+
+            box.appendChild(item);
+            box.scrollTop = box.scrollHeight;
+        }
+
+        function updateModeUI(mode) {
+            currentMode = mode.toLowerCase();
+
+            document.getElementById('btnManual')
+                .classList.toggle(
+                    'active',
+                    currentMode === 'manual'
+                );
+
+            document.getElementById('btnAuto')
+                .classList.toggle(
+                    'active',
+                    currentMode === 'auto'
+                );
+
+            const btn = document.getElementById('btnFeedNow');
+
+            btn.disabled =
+                currentMode === 'auto' || feedPending;
+
+            btn.textContent = feedPending
+                ? 'ĐANG CHỜ ESP32 XÁC NHẬN...'
+                : currentMode === 'auto'
+                    ? 'ĐANG Ở CHẾ ĐỘ TỰ ĐỘNG'
+                    : 'CHO ĂN NGAY';
+        }
+
+        async function setMode(mode) {
+            try {
+                const data = await api('/api/mode', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        mode: mode.toUpperCase()
+                    })
+                });
+
+                updateModeUI(data.mode);
+
+                addLog(
+                    'Đã đặt chế độ ' +
+                    (mode === 'auto' ? 'TỰ ĐỘNG' : 'THỦ CÔNG') +
+                    '.'
+                );
+
+                if (!data.mqttConnected) {
+                    addLog(
+                        'MQTT đang mất kết nối; ESP32 sẽ đồng bộ khi kết nối lại.'
+                    );
+                }
+
+            } catch (err) {
+                addLog('❌ ' + err.message);
+            }
+        }
+
+        function showFeedEvent(event) {
+            if (
+                !event ||
+                !event.id ||
+                shownFeedIds.has(event.id)
+            ) {
+                return;
+            }
+
+            shownFeedIds.add(event.id);
+
+            if (shownFeedIds.size > 500) {
+                shownFeedIds.clear();
+            }
+
+            if (event.status === 'DONE') {
+                const source =
+                    event.source === 'AUTO'
+                        ? 'tự động'
+                        : 'thủ công';
+
+                addLog(
+                    '✅ ESP32 xác nhận động cơ đã quay xong (' +
+                    source +
+                    (event.time ? ', ' + event.time : '') +
+                    ').'
+                );
+
             } else {
-                feedBtn.disabled = false; feedBtn.innerText = "CHO ĂN NGAY";
-                addLog("Chuyển sang chế độ THỦ CÔNG.");
-            }
-
-            // Nếu người dùng bấm trên web thì gửi tín hiệu lên server/MQTT
-            if (sendToServer) {
-                fetch('/set-mode/' + mode.toUpperCase());
+                addLog(
+                    '❌ ESP32 báo lỗi khi thực hiện lệnh cho ăn.'
+                );
             }
         }
 
-        function addLog(text) {
-            const logBox = document.getElementById('logContent');
-            const time = new Date().toLocaleTimeString('vi-VN', { hour12: false });
-            logBox.innerHTML += `<div class="msg-sys">[${time}] ${text}</div>`;
-            logBox.scrollTop = logBox.scrollHeight;
-        }
-
-        function feedFish(isAuto = false) {
-            fetch('/feed').then(() => {
-                addLog(`✅ Đã xả thức ăn thành công! (${isAuto ? "Tự động" : "Thủ công"})`);
-            });
-        }
-
-        function addSchedule() {
-            const timeVal = document.getElementById('timeInput').value;
-            if (timeVal && !schedules.includes(timeVal)) {
-                schedules.push(timeVal); 
-                updateScheduleUI(); 
-                addLog(`Đã thêm lịch cho ăn lúc ${timeVal}`);
-                
-                // Gửi giờ hẹn lên server
-                fetch('/set-time/' + timeVal.replace(':', '-'));
+        async function feedFish() {
+            if (
+                feedPending ||
+                currentMode === 'auto'
+            ) {
+                return;
             }
-        }
 
-        function removeSchedule(timeVal) {
-            schedules = schedules.filter(t => t !== timeVal); 
-            updateScheduleUI(); 
-            addLog(`Đã xóa lịch lúc ${timeVal}`);
+            feedPending = true;
+            updateModeUI(currentMode);
+
+            addLog(
+                'Đã gửi yêu cầu cho ăn, đang chờ ESP32 xác nhận...'
+            );
+
+            try {
+                const data = await api('/api/feed', {
+                    method: 'POST'
+                });
+
+                showFeedEvent(data.event);
+
+            } catch (err) {
+                addLog('⚠️ ' + err.message);
+
+            } finally {
+                feedPending = false;
+                updateModeUI(currentMode);
+            }
         }
 
         function updateScheduleUI() {
-            const list = document.getElementById('scheduleList');
-            list.innerHTML = "";
-            schedules.sort().forEach(time => {
-                list.innerHTML += `<li>${time} <button class="btn-delete" onclick="removeSchedule('${time}')">Xóa</button></li>`;
-            });
+            const list =
+                document.getElementById('scheduleList');
+
+            list.textContent = '';
+
+            for (const time of schedules) {
+                const li = document.createElement('li');
+                const label = document.createElement('span');
+
+                label.textContent = time;
+
+                const del = document.createElement('button');
+
+                del.className = 'btn-delete';
+                del.textContent = 'Xóa';
+
+                del.onclick = () => removeSchedule(time);
+
+                li.append(label, del);
+                list.appendChild(li);
+            }
         }
 
-        // Đồng bộ dữ liệu và trạng thái từ Server mỗi 3 giây
-        setInterval(() => {
-            // 1. Lấy % thức ăn
-            fetch('/food-level')
-                .then(res => res.text())
-                .then(level => {
-                    const progress = document.getElementById('foodProgress');
-                    const warning = document.getElementById('warningText');
-                    progress.style.width = level + "%";
-                    progress.innerText = level + "%";
+        async function addSchedule() {
+            const time =
+                document.getElementById('timeInput').value;
 
-                    if (parseInt(level) <= 25) {
-                        progress.style.background = "#dc3545"; 
-                        warning.style.display = "block";
-                        warning.innerText = "⚠️ CẢNH BÁO: Thức ăn dưới 25%!"; 
-                    } else {
-                        progress.style.background = "#28a745"; 
-                        warning.style.display = "none";
-                    }
+            if (!time) {
+                addLog('Vui lòng chọn giờ hẹn.');
+                return;
+            }
+
+            try {
+                const data = await api('/api/schedules', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ time })
                 });
 
-            // 2. Lấy trạng thái chế độ từ Server (nếu thay đổi từ App điện thoại)
-            fetch('/status')
-                .then(res => res.json())
-                .then(data => {
-                    if (data.mode) {
-                        const serverMode = data.mode.toLowerCase(); // 'auto' hoặc 'manual'
-                        if (serverMode !== currentMode) {
-                            setMode(serverMode, false); // Cập nhật giao diện theo điện thoại mà không gửi ngược lại lặp vô tận
-                        }
+                schedules = data.schedules;
+
+                updateScheduleUI();
+
+                addLog(
+                    '✅ Đã lưu lịch ' + time + ' trên Server.'
+                );
+
+                if (!data.mqttConnected) {
+                    addLog(
+                        'MQTT mất kết nối; lịch sẽ được đồng bộ khi kết nối lại.'
+                    );
+                }
+
+            } catch (err) {
+                addLog('❌ ' + err.message);
+            }
+        }
+
+        async function removeSchedule(time) {
+            try {
+                const data = await api(
+                    '/api/schedules/' +
+                    encodeURIComponent(time),
+                    {
+                        method: 'DELETE'
                     }
-                })
-                .catch(err => {});
-        }, 3000);
+                );
+
+                schedules = data.schedules;
+
+                updateScheduleUI();
+
+                addLog(
+                    '✅ Đã xóa lịch ' + time + ' trên Server.'
+                );
+
+                if (!data.mqttConnected) {
+                    addLog(
+                        'MQTT mất kết nối; ESP32 sẽ nhận thay đổi sau khi kết nối lại.'
+                    );
+                }
+
+            } catch (err) {
+                addLog('❌ ' + err.message);
+            }
+        }
+
+        async function refreshStatus() {
+            try {
+                const data = await api('/api/status');
+
+                const status =
+                    document.getElementById('connectionState');
+
+                status.textContent = data.mqttConnected
+                    ? '● MQTT đang kết nối'
+                    : '● MQTT đang mất kết nối';
+
+                status.style.color = data.mqttConnected
+                    ? '#218838'
+                    : '#dc3545';
+
+                if (
+                    data.mode &&
+                    data.mode.toLowerCase() !== currentMode
+                ) {
+                    updateModeUI(data.mode);
+
+                    addLog(
+                        'Đồng bộ chế độ từ hệ thống: ' +
+                        data.mode + '.'
+                    );
+                }
+
+                if (
+                    JSON.stringify(schedules) !==
+                    JSON.stringify(data.schedules)
+                ) {
+                    schedules = data.schedules;
+                    updateScheduleUI();
+                }
+
+                const progress =
+                    document.getElementById('foodProgress');
+
+                const warning =
+                    document.getElementById('warningText');
+
+                const stale =
+                    !data.foodLevelAt ||
+                    Date.now() - data.foodLevelAt > 15000;
+
+                if (
+                    data.foodLevel === null ||
+                    stale
+                ) {
+                    progress.style.width = '100%';
+                    progress.style.background = '#888';
+
+                    progress.textContent =
+                        '--% (chưa có dữ liệu mới)';
+
+                    warning.style.display = 'none';
+
+                } else {
+                    const level = data.foodLevel;
+
+                    progress.style.width = level + '%';
+
+                    progress.style.background =
+                        level <= 25 ? '#dc3545' : '#28a745';
+
+                    progress.textContent = level + '%';
+
+                    warning.style.display =
+                        level <= 25 ? 'block' : 'none';
+
+                    warning.textContent =
+                        '⚠️ CẢNH BÁO: Thức ăn còn 25% trở xuống!';
+                }
+
+            } catch (err) {
+                const status =
+                    document.getElementById('connectionState');
+
+                status.textContent =
+                    '● Không kết nối được Web Server';
+
+                status.style.color = '#dc3545';
+            }
+        }
+
+        async function refreshActivity() {
+            try {
+                const data = await api(
+                    '/api/activity?after=' + lastActivitySeq
+                );
+
+                for (const event of data.events) {
+                    lastActivitySeq = Math.max(
+                        lastActivitySeq,
+                        event.seq
+                    );
+
+                    if (event.type === 'feed') {
+                        showFeedEvent(event);
+                    }
+                }
+
+            } catch {
+                // Mất kết nối sẽ thử lại sau.
+            }
+        }
+
+        updateClock();
+        updateModeUI(currentMode);
+        refreshStatus();
+        refreshActivity();
+
+        setInterval(updateClock, 1000);
 
         setInterval(() => {
-            const now = updateClock();
-            const currentTimeStr = String(now.getHours()).padStart(2, '0') + ":" + String(now.getMinutes()).padStart(2, '0');
-            if (currentMode === 'auto' && schedules.includes(currentTimeStr) && lastFedTime !== currentTimeStr) {
-                feedFish(true); lastFedTime = currentTimeStr;
-            }
-        }, 1000);
-        
-        updateClock();
+            refreshStatus();
+            refreshActivity();
+        }, 3000);
     </script>
 </body>
 </html>
