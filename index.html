@@ -4,6 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <title>Quản Lý Bể Cá Molly</title>
+
     <style>
         body {
             text-align: center;
@@ -216,6 +217,7 @@
 </head>
 
 <body>
+
     <div class="container">
 
         <h1>Bể Cá Molly 🐠</h1>
@@ -224,7 +226,12 @@
 
         <div id="connectionState"
              style="font-size:13px;color:#666;margin-bottom:12px">
-            Đang kết nối Server...
+            Đang kết nối Cloud...
+        </div>
+
+        <div id="revisionState"
+             style="font-size:12px;color:#777;margin-bottom:9px">
+            Molly Cloud Sync • đang tải lịch...
         </div>
 
         <div class="food-box">
@@ -292,16 +299,24 @@
     </div>
 
     <script>
-        // ESP32 thực hiện lịch tự động.
-        // Web không tự gửi /feed theo đồng hồ.
+        // ESP32 thuc hien lich tu dong.
+        // Web khong tu gui lenh cho an theo dong ho.
 
         let schedules = [];
+
+        let managerPin =
+            sessionStorage.getItem('mollyPin') || '';
+
+        let lastRevision = null;
+        let loadedOnce = false;
+
         let currentMode = 'manual';
         let feedPending = false;
         let lastActivitySeq = 0;
 
         const shownFeedIds = new Set();
 
+        // Cap nhat dong ho.
         function updateClock() {
             document.getElementById('clock').textContent =
                 new Date().toLocaleTimeString('vi-VN', {
@@ -309,38 +324,98 @@
                 });
         }
 
+        // Ham goi API Cloud Server.
         async function api(url, options = {}) {
-            let response;
+            const isWrite =
+                options.method &&
+                options.method.toUpperCase() !== 'GET';
 
-            try {
-                response = await fetch(url, options);
-            } catch {
-                throw new Error(
-                    'Không kết nối được với Web Server.'
-                );
+            for (let attempt = 0; attempt < 2; attempt++) {
+                const headers = {
+                    ...(options.headers || {})
+                };
+
+                if (isWrite && managerPin) {
+                    headers['X-Molly-Pin'] = managerPin;
+                }
+
+                let response;
+
+                try {
+                    response = await fetch(url, {
+                        ...options,
+                        headers,
+                        cache: 'no-store'
+                    });
+
+                } catch {
+                    throw new Error(
+                        'Không kết nối được Web Server.'
+                    );
+                }
+
+                if (
+                    response.status === 401 &&
+                    isWrite &&
+                    attempt === 0
+                ) {
+                    const input = window.prompt(
+                        'Nhập mã PIN điều khiển Molly (đã đặt trong Render):'
+                    );
+
+                    if (input === null) {
+                        throw new Error(
+                            'Bạn chưa nhập mã PIN.'
+                        );
+                    }
+
+                    managerPin = input;
+
+                    sessionStorage.setItem(
+                        'mollyPin',
+                        managerPin
+                    );
+
+                    continue;
+                }
+
+                let result;
+
+                try {
+                    result = await response.json();
+                } catch {
+                    throw new Error(
+                        'Server trả về dữ liệu không hợp lệ.'
+                    );
+                }
+
+                if (
+                    !response.ok ||
+                    result.ok === false
+                ) {
+                    if (response.status === 401) {
+                        managerPin = '';
+
+                        sessionStorage.removeItem(
+                            'mollyPin'
+                        );
+                    }
+
+                    throw new Error(
+                        result.message ||
+                        'Thao tác không thành công.'
+                    );
+                }
+
+                return result;
             }
-
-            let result;
-
-            try {
-                result = await response.json();
-            } catch {
-                throw new Error(
-                    'Server trả về dữ liệu không hợp lệ.'
-                );
-            }
-
-            if (!response.ok || result.ok === false) {
-                throw new Error(
-                    result.message || 'Thao tác không thành công.'
-                );
-            }
-
-            return result;
         }
 
+        // Hien thi nhat ky.
         function addLog(message) {
-            const box = document.getElementById('logContent');
+            const box =
+                document.getElementById('logContent');
+
             const item = document.createElement('div');
 
             item.className = 'msg-sys';
@@ -350,12 +425,14 @@
                 new Date().toLocaleTimeString('vi-VN', {
                     hour12: false
                 }) +
-                '] ' + message;
+                '] ' +
+                message;
 
             box.appendChild(item);
             box.scrollTop = box.scrollHeight;
         }
 
+        // Cap nhat giao dien che do.
         function updateModeUI(mode) {
             currentMode = mode.toLowerCase();
 
@@ -371,10 +448,12 @@
                     currentMode === 'auto'
                 );
 
-            const btn = document.getElementById('btnFeedNow');
+            const btn =
+                document.getElementById('btnFeedNow');
 
             btn.disabled =
-                currentMode === 'auto' || feedPending;
+                currentMode === 'auto' ||
+                feedPending;
 
             btn.textContent = feedPending
                 ? 'ĐANG CHỜ ESP32 XÁC NHẬN...'
@@ -383,13 +462,16 @@
                     : 'CHO ĂN NGAY';
         }
 
+        // Chuyen che do.
         async function setMode(mode) {
             try {
                 const data = await api('/api/mode', {
                     method: 'POST',
+
                     headers: {
                         'Content-Type': 'application/json'
                     },
+
                     body: JSON.stringify({
                         mode: mode.toUpperCase()
                     })
@@ -399,7 +481,11 @@
 
                 addLog(
                     'Đã đặt chế độ ' +
-                    (mode === 'auto' ? 'TỰ ĐỘNG' : 'THỦ CÔNG') +
+                    (
+                        mode === 'auto'
+                            ? 'TỰ ĐỘNG'
+                            : 'THỦ CÔNG'
+                    ) +
                     '.'
                 );
 
@@ -414,6 +500,7 @@
             }
         }
 
+        // Hien thi ket qua dong co.
         function showFeedEvent(event) {
             if (
                 !event ||
@@ -438,7 +525,11 @@
                 addLog(
                     '✅ ESP32 xác nhận động cơ đã quay xong (' +
                     source +
-                    (event.time ? ', ' + event.time : '') +
+                    (
+                        event.time
+                            ? ', ' + event.time
+                            : ''
+                    ) +
                     ').'
                 );
 
@@ -449,6 +540,7 @@
             }
         }
 
+        // Cho an thu cong.
         async function feedFish() {
             if (
                 feedPending ||
@@ -458,6 +550,7 @@
             }
 
             feedPending = true;
+
             updateModeUI(currentMode);
 
             addLog(
@@ -476,10 +569,12 @@
 
             } finally {
                 feedPending = false;
+
                 updateModeUI(currentMode);
             }
         }
 
+        // Hien thi danh sach gio hen.
         function updateScheduleUI() {
             const list =
                 document.getElementById('scheduleList');
@@ -487,12 +582,16 @@
             list.textContent = '';
 
             for (const time of schedules) {
-                const li = document.createElement('li');
-                const label = document.createElement('span');
+                const li =
+                    document.createElement('li');
+
+                const label =
+                    document.createElement('span');
 
                 label.textContent = time;
 
-                const del = document.createElement('button');
+                const del =
+                    document.createElement('button');
 
                 del.className = 'btn-delete';
                 del.textContent = 'Xóa';
@@ -500,10 +599,12 @@
                 del.onclick = () => removeSchedule(time);
 
                 li.append(label, del);
+
                 list.appendChild(li);
             }
         }
 
+        // Them gio vao Cloud.
         async function addSchedule() {
             const time =
                 document.getElementById('timeInput').value;
@@ -514,20 +615,30 @@
             }
 
             try {
-                const data = await api('/api/schedules', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ time })
-                });
+                const data = await api(
+                    '/api/schedules',
+                    {
+                        method: 'POST',
+
+                        headers: {
+                            'Content-Type':
+                                'application/json'
+                        },
+
+                        body: JSON.stringify({
+                            time
+                        })
+                    }
+                );
 
                 schedules = data.schedules;
 
                 updateScheduleUI();
 
                 addLog(
-                    '✅ Đã lưu lịch ' + time + ' trên Server.'
+                    '✅ Đã lưu lịch ' +
+                    time +
+                    ' trên Server.'
                 );
 
                 if (!data.mqttConnected) {
@@ -541,6 +652,7 @@
             }
         }
 
+        // Xoa gio tren Cloud.
         async function removeSchedule(time) {
             try {
                 const data = await api(
@@ -556,7 +668,9 @@
                 updateScheduleUI();
 
                 addLog(
-                    '✅ Đã xóa lịch ' + time + ' trên Server.'
+                    '✅ Đã xóa lịch ' +
+                    time +
+                    ' trên Server.'
                 );
 
                 if (!data.mqttConnected) {
@@ -570,21 +684,39 @@
             }
         }
 
+        // Dong bo trang thai tu Server.
         async function refreshStatus() {
             try {
                 const data = await api('/api/status');
 
                 const status =
-                    document.getElementById('connectionState');
+                    document.getElementById(
+                        'connectionState'
+                    );
 
-                status.textContent = data.mqttConnected
-                    ? '● MQTT đang kết nối'
-                    : '● MQTT đang mất kết nối';
+                status.textContent =
+                    data.mqttConnected
+                        ? '● Cloud và MQTT đang kết nối'
+                        : '● Cloud hoạt động, MQTT mất kết nối';
 
-                status.style.color = data.mqttConnected
-                    ? '#218838'
-                    : '#dc3545';
+                document.getElementById(
+                    'revisionState'
+                ).textContent =
+                    '☁️ Lịch lưu trên ' +
+                    (
+                        data.storage === 'upstash'
+                            ? 'Upstash Redis'
+                            : 'Server'
+                    ) +
+                    ' • Phiên bản dữ liệu: ' +
+                    data.revision;
 
+                status.style.color =
+                    data.mqttConnected
+                        ? '#218838'
+                        : '#dc3545';
+
+                // Dong bo che do giua cac Web.
                 if (
                     data.mode &&
                     data.mode.toLowerCase() !== currentMode
@@ -593,23 +725,40 @@
 
                     addLog(
                         'Đồng bộ chế độ từ hệ thống: ' +
-                        data.mode + '.'
+                        data.mode +
+                        '.'
                     );
                 }
 
+                // Dong bo lich giua cac Web.
                 if (
                     JSON.stringify(schedules) !==
                     JSON.stringify(data.schedules)
                 ) {
                     schedules = data.schedules;
+
                     updateScheduleUI();
+
+                    if (loadedOnce) {
+                        addLog(
+                            '🔄 Lịch cho ăn vừa được đồng bộ từ thiết bị khác.'
+                        );
+                    }
                 }
 
+                lastRevision = data.revision;
+                loadedOnce = true;
+
+                // Cap nhat muc thuc an.
                 const progress =
-                    document.getElementById('foodProgress');
+                    document.getElementById(
+                        'foodProgress'
+                    );
 
                 const warning =
-                    document.getElementById('warningText');
+                    document.getElementById(
+                        'warningText'
+                    );
 
                 const stale =
                     !data.foodLevelAt ||
@@ -630,15 +779,21 @@
                 } else {
                     const level = data.foodLevel;
 
-                    progress.style.width = level + '%';
+                    progress.style.width =
+                        level + '%';
 
                     progress.style.background =
-                        level <= 25 ? '#dc3545' : '#28a745';
+                        level <= 25
+                            ? '#dc3545'
+                            : '#28a745';
 
-                    progress.textContent = level + '%';
+                    progress.textContent =
+                        level + '%';
 
                     warning.style.display =
-                        level <= 25 ? 'block' : 'none';
+                        level <= 25
+                            ? 'block'
+                            : 'none';
 
                     warning.textContent =
                         '⚠️ CẢNH BÁO: Thức ăn còn 25% trở xuống!';
@@ -646,7 +801,9 @@
 
             } catch (err) {
                 const status =
-                    document.getElementById('connectionState');
+                    document.getElementById(
+                        'connectionState'
+                    );
 
                 status.textContent =
                     '● Không kết nối được Web Server';
@@ -655,10 +812,12 @@
             }
         }
 
+        // Nhan nhat ky hoat dong tu Server.
         async function refreshActivity() {
             try {
                 const data = await api(
-                    '/api/activity?after=' + lastActivitySeq
+                    '/api/activity?after=' +
+                    lastActivitySeq
                 );
 
                 for (const event of data.events) {
@@ -673,21 +832,25 @@
                 }
 
             } catch {
-                // Mất kết nối sẽ thử lại sau.
+                // Mat ket noi se thu lai.
             }
         }
 
+        // Khoi dong giao dien.
         updateClock();
         updateModeUI(currentMode);
+
         refreshStatus();
         refreshActivity();
 
         setInterval(updateClock, 1000);
 
+        // Dong bo moi 3 giay.
         setInterval(() => {
             refreshStatus();
             refreshActivity();
         }, 3000);
     </script>
+
 </body>
 </html>
