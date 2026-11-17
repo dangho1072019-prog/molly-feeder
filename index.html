@@ -2,855 +2,975 @@
 <!DOCTYPE html>
 <html lang="vi">
 <head>
-    <meta charset="UTF-8">
-    <title>Quản Lý Bể Cá Molly</title>
+  <meta charset="UTF-8">
+  <meta name="viewport"
+        content="width=device-width, initial-scale=1">
+  <title>Quản Lý Bể Cá Molly</title>
 
-    <style>
-        body {
-            text-align: center;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            margin-top: 30px;
-            background-color: #ffd1dc;
-            display: flex;
-            justify-content: center;
-        }
+  <style>
+    * { box-sizing: border-box; }
 
-        .container {
-            background: white;
-            padding: 30px;
-            border-radius: 15px;
-            box-shadow: 0 8px 16px rgba(0,0,0,0.1);
-            width: 450px;
-        }
+    body {
+      text-align: center;
+      font-family: 'Segoe UI', Tahoma, sans-serif;
+      margin: 0;
+      padding: 30px 12px;
+      background: #ffd1dc;
+      display: flex;
+      justify-content: center;
+    }
 
-        h1 {
-            color: #ff6b81;
-            font-size: 26px;
-            margin-bottom: 5px;
-        }
+    .container {
+      background: white;
+      padding: 24px;
+      border-radius: 15px;
+      box-shadow: 0 8px 16px rgba(0,0,0,.1);
+      width: 100%;
+      max-width: 470px;
+    }
 
-        #clock {
-            font-size: 32px;
-            font-weight: bold;
-            color: #555;
-            margin-bottom: 15px;
-            letter-spacing: 2px;
-        }
+    h1 {
+      color: #ff6b81;
+      font-size: 26px;
+      margin: 0 0 5px;
+    }
 
-        .food-box {
-            background: #f8f9fa;
-            border: 1px solid #ffb6c1;
-            border-radius: 8px;
-            padding: 15px;
-            margin-bottom: 20px;
-        }
+    #clock {
+      font-size: 32px;
+      font-weight: bold;
+      color: #555;
+      margin-bottom: 12px;
+    }
 
-        .food-bar-bg {
-            background: #e9ecef;
-            border-radius: 20px;
-            height: 25px;
-            width: 100%;
-            overflow: hidden;
-            margin-top: 10px;
-            border: 1px solid #ccc;
-        }
+    .cloud-info {
+      font-size: 12px;
+      color: #777;
+      margin-bottom: 9px;
+    }
 
-        .food-bar-fill {
-            background: #28a745;
-            height: 100%;
-            width: 100%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-weight: bold;
-            transition: width 0.5s, background 0.5s;
-        }
+    .food-box, .motor-box {
+      background: #fffafb;
+      border: 1px solid #ffb6c1;
+      border-radius: 9px;
+      padding: 15px;
+      margin: 15px 0 20px;
+    }
 
-        .warning-text {
-            color: red;
-            font-weight: bold;
-            font-size: 14px;
-            margin-top: 10px;
-            display: none;
-        }
+    .food-bar-bg {
+      background: #e9ecef;
+      border-radius: 20px;
+      height: 25px;
+      width: 100%;
+      overflow: hidden;
+      margin-top: 10px;
+      border: 1px solid #ccc;
+    }
 
-        .mode-switch {
-            display: flex;
-            margin-bottom: 20px;
-            border-radius: 8px;
-            overflow: hidden;
-            border: 2px solid #ff6b81;
-        }
+    .food-bar-fill {
+      background: #28a745;
+      height: 100%;
+      width: 100%;
+      color: white;
+      font-weight: bold;
+      transition: width .5s;
+    }
 
-        .mode-btn {
-            flex: 1;
-            padding: 12px;
-            border: none;
-            cursor: pointer;
-            font-weight: bold;
-            font-size: 16px;
-            background: white;
-            color: #ff6b81;
-            transition: 0.3s;
-        }
+    .warning-text {
+      color: red;
+      font-weight: bold;
+      font-size: 14px;
+      margin-top: 10px;
+      display: none;
+    }
 
-        .mode-btn.active {
-            background: #ff6b81;
-            color: white;
-        }
+    /* GIAM SAT DONG DIEN */
+    .motor-box {
+      text-align: left;
+    }
 
-        .btn-feed {
-            padding: 15px 30px;
-            font-size: 18px;
-            font-weight: bold;
-            background-color: #28a745;
-            color: white;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            width: 100%;
-            margin-bottom: 20px;
-            transition: 0.2s;
-        }
+    .motor-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin: 12px 0;
+    }
 
-        .btn-feed:active {
-            background-color: #218838;
-        }
+    .motor-value {
+      background: white;
+      border: 1px solid #ffe2e9;
+      border-radius: 7px;
+      padding: 10px;
+      font-size: 16px;
+      font-weight: 700;
+      color: #333;
+    }
 
-        .btn-feed:disabled {
-            background-color: #ccc;
-            cursor: not-allowed;
-            color: #666;
-        }
+    .motor-value small {
+      display: block;
+      color: #666;
+      font-size: 12px;
+      font-weight: normal;
+      margin-bottom: 5px;
+    }
 
-        .timer-box {
-            border-top: 2px dashed #ffb6c1;
-            padding-top: 15px;
-            margin-top: 10px;
-            text-align: left;
-        }
+    .motor-status {
+      padding: 12px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: bold;
+      background: #f0f0f0;
+      color: #555;
+      line-height: 1.5;
+    }
 
-        input[type="time"] {
-            padding: 8px;
-            font-size: 16px;
-            border-radius: 5px;
-            border: 1px solid #ccc;
-            outline: none;
-        }
+    .motor-status.normal {
+      background: #e8f7ed;
+      color: #167336;
+    }
 
-        .btn-add {
-            padding: 9px 15px;
-            font-size: 16px;
-            background-color: #74b9ff;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            float: right;
-        }
+    .motor-status.watch {
+      background: #fff4d3;
+      color: #886000;
+    }
 
-        ul {
-            list-style-type: none;
-            padding: 0;
-        }
+    .motor-status.warning {
+      background: #ffe5e5;
+      color: #a11c20;
+      border: 1px solid #eb8888;
+    }
 
-        li {
-            background: #f8f9fa;
-            margin: 8px 0;
-            padding: 10px;
-            border-radius: 5px;
-            font-weight: bold;
-            display: flex;
-            justify-content: space-between;
-            border-left: 4px solid #74b9ff;
-        }
+    .motor-age {
+      font-size: 12px;
+      color: #666;
+      margin-top: 9px;
+      line-height: 1.5;
+    }
 
-        .btn-delete {
-            background: #ff7675;
-            color: white;
-            border: none;
-            padding: 5px 10px;
-            border-radius: 3px;
-            cursor: pointer;
-            font-size: 12px;
-        }
+    .mode-switch {
+      display: flex;
+      margin-bottom: 20px;
+      border-radius: 8px;
+      overflow: hidden;
+      border: 2px solid #ff6b81;
+    }
 
-        .log-box {
-            border: 1px solid #ffb6c1;
-            border-radius: 8px;
-            margin-top: 25px;
-            overflow: hidden;
-            background: #fffafb;
-            text-align: left;
-        }
+    .mode-btn {
+      flex: 1;
+      padding: 12px;
+      border: none;
+      cursor: pointer;
+      font-weight: bold;
+      background: white;
+      color: #ff6b81;
+    }
 
-        .log-header {
-            background: #ffb6c1;
-            color: white;
-            padding: 10px;
-            font-weight: bold;
-            text-align: center;
-            font-size: 15px;
-        }
+    .mode-btn.active {
+      background: #ff6b81;
+      color: white;
+    }
 
-        .log-content {
-            height: 160px;
-            overflow-y: auto;
-            padding: 10px;
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-            font-size: 14px;
-        }
+    .btn-feed {
+      padding: 15px;
+      font-size: 18px;
+      font-weight: bold;
+      background: #28a745;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      width: 100%;
+      margin-bottom: 20px;
+    }
 
-        .msg-sys {
-            padding: 8px 12px;
-            border-radius: 8px;
-            background: #ffeaa7;
-            color: #d35400;
-            align-self: flex-start;
-            max-width: 90%;
-            line-height: 1.4;
-        }
-    </style>
+    .btn-feed:disabled {
+      background: #ccc;
+      color: #666;
+      cursor: not-allowed;
+    }
+
+    .timer-box {
+      border-top: 2px dashed #ffb6c1;
+      padding-top: 15px;
+      text-align: left;
+    }
+
+    input[type="time"] {
+      padding: 8px;
+      font-size: 16px;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+    }
+
+    .btn-add {
+      padding: 9px 15px;
+      background: #74b9ff;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      float: right;
+    }
+
+    ul {
+      list-style: none;
+      padding: 0;
+      clear: both;
+    }
+
+    li {
+      background: #f8f9fa;
+      margin: 8px 0;
+      padding: 10px;
+      border-radius: 5px;
+      display: flex;
+      justify-content: space-between;
+      border-left: 4px solid #74b9ff;
+    }
+
+    .btn-delete {
+      background: #ff7675;
+      color: white;
+      border: none;
+      padding: 5px 10px;
+      border-radius: 3px;
+      cursor: pointer;
+    }
+
+    .log-box {
+      border: 1px solid #ffb6c1;
+      border-radius: 8px;
+      margin-top: 25px;
+      overflow: hidden;
+      background: #fffafb;
+      text-align: left;
+    }
+
+    .log-header {
+      background: #ffb6c1;
+      color: white;
+      padding: 10px;
+      font-weight: bold;
+      text-align: center;
+    }
+
+    .log-content {
+      height: 180px;
+      overflow-y: auto;
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      font-size: 14px;
+    }
+
+    .msg-sys {
+      padding: 8px 12px;
+      border-radius: 8px;
+      background: #ffeaa7;
+      color: #d35400;
+      line-height: 1.4;
+    }
+  </style>
 </head>
 
 <body>
+  <div class="container">
 
-    <div class="container">
+    <h1>Bể Cá Molly 🐠</h1>
+    <div id="clock">00:00:00</div>
 
-        <h1>Bể Cá Molly 🐠</h1>
-
-        <div id="clock">00:00:00</div>
-
-        <div id="connectionState"
-             style="font-size:13px;color:#666;margin-bottom:12px">
-            Đang kết nối Cloud...
-        </div>
-
-        <div id="revisionState"
-             style="font-size:12px;color:#777;margin-bottom:9px">
-            Molly Cloud Sync • đang tải lịch...
-        </div>
-
-        <div class="food-box">
-            <h3 style="margin:0;color:#555;font-size:16px">
-                📊 Lượng Thức Ăn Còn Lại
-            </h3>
-
-            <div class="food-bar-bg">
-                <div id="foodProgress" class="food-bar-fill">
-                    --%
-                </div>
-            </div>
-
-            <div id="warningText" class="warning-text">
-                ⚠️ CẢNH BÁO: Thức ăn sắp hết!
-            </div>
-        </div>
-
-        <div class="mode-switch">
-            <button id="btnManual"
-                    class="mode-btn active"
-                    onclick="setMode('manual')">
-                🖐 THỦ CÔNG
-            </button>
-
-            <button id="btnAuto"
-                    class="mode-btn"
-                    onclick="setMode('auto')">
-                ⏳ TỰ ĐỘNG
-            </button>
-        </div>
-
-        <button id="btnFeedNow"
-                class="btn-feed"
-                onclick="feedFish()">
-            CHO ĂN NGAY
-        </button>
-
-        <div class="timer-box">
-            <h3 style="color:#555;font-size:16px">
-                ⏰ Lịch Cho Ăn Tự Động (tối đa 20 giờ)
-            </h3>
-
-            <input type="time" id="timeInput">
-
-            <button class="btn-add" onclick="addSchedule()">
-                Thêm Giờ
-            </button>
-
-            <ul id="scheduleList"></ul>
-        </div>
-
-        <div class="log-box">
-            <div class="log-header">
-                📋 Nhật Ký Hoạt Động
-            </div>
-
-            <div class="log-content" id="logContent">
-                <div class="msg-sys">
-                    Hệ thống đã khởi động thành công!
-                </div>
-            </div>
-        </div>
-
+    <div id="connectionState" class="cloud-info">
+      Đang kết nối Cloud...
     </div>
 
-    <script>
-        // ESP32 thuc hien lich tu dong.
-        // Web khong tu gui lenh cho an theo dong ho.
+    <div id="revisionState" class="cloud-info">
+      Molly Cloud Sync • đang tải lịch...
+    </div>
 
-        let schedules = [];
+    <!-- MUC THUC AN -->
+    <div class="food-box">
+      <h3 style="margin:0;color:#555;font-size:16px">
+        📊 Lượng Thức Ăn Còn Lại
+      </h3>
 
-        let managerPin =
-            sessionStorage.getItem('mollyPin') || '';
+      <div class="food-bar-bg">
+        <div id="foodProgress"
+             class="food-bar-fill">--%</div>
+      </div>
 
-        let lastRevision = null;
-        let loadedOnce = false;
+      <div id="warningText" class="warning-text">
+        ⚠️ CẢNH BÁO: Thức ăn sắp hết!
+      </div>
+    </div>
 
-        let currentMode = 'manual';
-        let feedPending = false;
-        let lastActivitySeq = 0;
+    <!-- GIAM SAT DONG DIEN ACS712 -->
+    <div class="motor-box" aria-live="polite">
+      <h3 style="margin:0;color:#555;font-size:16px">
+        ⚙️ Giám Sát Dòng Động Cơ
+      </h3>
 
-        const shownFeedIds = new Set();
+      <div class="motor-grid">
+        <div class="motor-value">
+          <small>Dòng trung bình</small>
+          <span id="motorAverage">-- mA</span>
+        </div>
 
-        // Cap nhat dong ho.
-        function updateClock() {
-            document.getElementById('clock').textContent =
-                new Date().toLocaleTimeString('vi-VN', {
-                    hour12: false
-                });
+        <div class="motor-value">
+          <small>Rolling MAX (16 mẫu)</small>
+          <span id="motorRolling">-- mA</span>
+        </div>
+
+        <div class="motor-value">
+          <small>Điện áp nguồn</small>
+          <span id="motorVoltage">-- V</span>
+        </div>
+
+        <div class="motor-value">
+          <small>Ngưỡng cảnh báo</small>
+          <span id="motorThreshold">
+            280 mA (thử nghiệm)
+          </span>
+        </div>
+      </div>
+
+      <div id="motorState" class="motor-status">
+        Chưa có kết quả đo từ ESP32
+      </div>
+
+      <div id="motorAge" class="motor-age">
+        Dữ liệu cập nhật sau mỗi lần cho ăn.
+      </div>
+    </div>
+
+    <!-- CHE DO -->
+    <div class="mode-switch">
+      <button
+        id="btnManual"
+        class="mode-btn active"
+        onclick="setMode('manual')">
+        🖐 THỦ CÔNG
+      </button>
+
+      <button
+        id="btnAuto"
+        class="mode-btn"
+        onclick="setMode('auto')">
+        ⏳ TỰ ĐỘNG
+      </button>
+    </div>
+
+    <button
+      id="btnFeedNow"
+      class="btn-feed"
+      onclick="feedFish()">
+      CHO ĂN NGAY
+    </button>
+
+    <!-- LICH CHO AN -->
+    <div class="timer-box">
+      <h3 style="color:#555;font-size:16px">
+        ⏰ Lịch Cho Ăn Tự Động (tối đa 20 giờ)
+      </h3>
+
+      <input type="time" id="timeInput">
+
+      <button
+        class="btn-add"
+        onclick="addSchedule()">
+        Thêm Giờ
+      </button>
+
+      <ul id="scheduleList"></ul>
+    </div>
+
+    <!-- NHAT KY -->
+    <div class="log-box">
+      <div class="log-header">
+        📋 Nhật Ký Hoạt Động
+      </div>
+
+      <div class="log-content" id="logContent">
+        <div class="msg-sys">
+          Hệ thống đã khởi động thành công!
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    // ===== BIEN WEB =====
+    let schedules = [];
+    let managerPin =
+      sessionStorage.getItem('mollyPin') || '';
+
+    let currentMode = 'manual';
+    let feedPending = false;
+    let loadedOnce = false;
+    let lastActivitySeq = 0;
+
+    const shownFeedIds = new Set();
+
+    // ===== DONG HO =====
+    function updateClock() {
+      document.getElementById('clock').textContent =
+        new Date().toLocaleTimeString(
+          'vi-VN',
+          { hour12: false }
+        );
+    }
+
+    // ===== GOI API =====
+    async function api(url, options = {}) {
+      const isWrite =
+        options.method &&
+        options.method.toUpperCase() !== 'GET';
+
+      for (let attempt = 0; attempt < 2; attempt++) {
+        const headers = {
+          ...(options.headers || {})
+        };
+
+        if (isWrite && managerPin) {
+          headers['X-Molly-Pin'] = managerPin;
         }
 
-        // Ham goi API Cloud Server.
-        async function api(url, options = {}) {
-            const isWrite =
-                options.method &&
-                options.method.toUpperCase() !== 'GET';
+        let response;
 
-            for (let attempt = 0; attempt < 2; attempt++) {
-                const headers = {
-                    ...(options.headers || {})
-                };
-
-                if (isWrite && managerPin) {
-                    headers['X-Molly-Pin'] = managerPin;
-                }
-
-                let response;
-
-                try {
-                    response = await fetch(url, {
-                        ...options,
-                        headers,
-                        cache: 'no-store'
-                    });
-
-                } catch {
-                    throw new Error(
-                        'Không kết nối được Web Server.'
-                    );
-                }
-
-                if (
-                    response.status === 401 &&
-                    isWrite &&
-                    attempt === 0
-                ) {
-                    const input = window.prompt(
-                        'Nhập mã PIN điều khiển Molly (đã đặt trong Render):'
-                    );
-
-                    if (input === null) {
-                        throw new Error(
-                            'Bạn chưa nhập mã PIN.'
-                        );
-                    }
-
-                    managerPin = input;
-
-                    sessionStorage.setItem(
-                        'mollyPin',
-                        managerPin
-                    );
-
-                    continue;
-                }
-
-                let result;
-
-                try {
-                    result = await response.json();
-                } catch {
-                    throw new Error(
-                        'Server trả về dữ liệu không hợp lệ.'
-                    );
-                }
-
-                if (
-                    !response.ok ||
-                    result.ok === false
-                ) {
-                    if (response.status === 401) {
-                        managerPin = '';
-
-                        sessionStorage.removeItem(
-                            'mollyPin'
-                        );
-                    }
-
-                    throw new Error(
-                        result.message ||
-                        'Thao tác không thành công.'
-                    );
-                }
-
-                return result;
-            }
+        try {
+          response = await fetch(url, {
+            ...options,
+            headers,
+            cache: 'no-store'
+          });
+        } catch {
+          throw new Error(
+            'Không kết nối được Web Server.'
+          );
         }
 
-        // Hien thi nhat ky.
-        function addLog(message) {
-            const box =
-                document.getElementById('logContent');
+        if (response.status === 401 &&
+            isWrite &&
+            attempt === 0) {
+          const input = window.prompt(
+            'Nhập mã PIN điều khiển Molly:'
+          );
 
-            const item = document.createElement('div');
-
-            item.className = 'msg-sys';
-
-            item.textContent =
-                '[' +
-                new Date().toLocaleTimeString('vi-VN', {
-                    hour12: false
-                }) +
-                '] ' +
-                message;
-
-            box.appendChild(item);
-            box.scrollTop = box.scrollHeight;
-        }
-
-        // Cap nhat giao dien che do.
-        function updateModeUI(mode) {
-            currentMode = mode.toLowerCase();
-
-            document.getElementById('btnManual')
-                .classList.toggle(
-                    'active',
-                    currentMode === 'manual'
-                );
-
-            document.getElementById('btnAuto')
-                .classList.toggle(
-                    'active',
-                    currentMode === 'auto'
-                );
-
-            const btn =
-                document.getElementById('btnFeedNow');
-
-            btn.disabled =
-                currentMode === 'auto' ||
-                feedPending;
-
-            btn.textContent = feedPending
-                ? 'ĐANG CHỜ ESP32 XÁC NHẬN...'
-                : currentMode === 'auto'
-                    ? 'ĐANG Ở CHẾ ĐỘ TỰ ĐỘNG'
-                    : 'CHO ĂN NGAY';
-        }
-
-        // Chuyen che do.
-        async function setMode(mode) {
-            try {
-                const data = await api('/api/mode', {
-                    method: 'POST',
-
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-
-                    body: JSON.stringify({
-                        mode: mode.toUpperCase()
-                    })
-                });
-
-                updateModeUI(data.mode);
-
-                addLog(
-                    'Đã đặt chế độ ' +
-                    (
-                        mode === 'auto'
-                            ? 'TỰ ĐỘNG'
-                            : 'THỦ CÔNG'
-                    ) +
-                    '.'
-                );
-
-                if (!data.mqttConnected) {
-                    addLog(
-                        'MQTT đang mất kết nối; ESP32 sẽ đồng bộ khi kết nối lại.'
-                    );
-                }
-
-            } catch (err) {
-                addLog('❌ ' + err.message);
-            }
-        }
-
-        // Hien thi ket qua dong co.
-        function showFeedEvent(event) {
-            if (
-                !event ||
-                !event.id ||
-                shownFeedIds.has(event.id)
-            ) {
-                return;
-            }
-
-            shownFeedIds.add(event.id);
-
-            if (shownFeedIds.size > 500) {
-                shownFeedIds.clear();
-            }
-
-            if (event.status === 'DONE') {
-                const source =
-                    event.source === 'AUTO'
-                        ? 'tự động'
-                        : 'thủ công';
-
-                addLog(
-                    '✅ ESP32 xác nhận động cơ đã quay xong (' +
-                    source +
-                    (
-                        event.time
-                            ? ', ' + event.time
-                            : ''
-                    ) +
-                    ').'
-                );
-
-            } else {
-                addLog(
-                    '❌ ESP32 báo lỗi khi thực hiện lệnh cho ăn.'
-                );
-            }
-        }
-
-        // Cho an thu cong.
-        async function feedFish() {
-            if (
-                feedPending ||
-                currentMode === 'auto'
-            ) {
-                return;
-            }
-
-            feedPending = true;
-
-            updateModeUI(currentMode);
-
-            addLog(
-                'Đã gửi yêu cầu cho ăn, đang chờ ESP32 xác nhận...'
+          if (input === null) {
+            throw new Error(
+              'Bạn chưa nhập mã PIN.'
             );
+          }
 
-            try {
-                const data = await api('/api/feed', {
-                    method: 'POST'
-                });
+          managerPin = input;
 
-                showFeedEvent(data.event);
+          sessionStorage.setItem(
+            'mollyPin', managerPin
+          );
 
-            } catch (err) {
-                addLog('⚠️ ' + err.message);
-
-            } finally {
-                feedPending = false;
-
-                updateModeUI(currentMode);
-            }
+          continue;
         }
 
-        // Hien thi danh sach gio hen.
-        function updateScheduleUI() {
-            const list =
-                document.getElementById('scheduleList');
+        let result;
 
-            list.textContent = '';
-
-            for (const time of schedules) {
-                const li =
-                    document.createElement('li');
-
-                const label =
-                    document.createElement('span');
-
-                label.textContent = time;
-
-                const del =
-                    document.createElement('button');
-
-                del.className = 'btn-delete';
-                del.textContent = 'Xóa';
-
-                del.onclick = () => removeSchedule(time);
-
-                li.append(label, del);
-
-                list.appendChild(li);
-            }
+        try {
+          result = await response.json();
+        } catch {
+          throw new Error(
+            'Server trả về dữ liệu không hợp lệ.'
+          );
         }
 
-        // Them gio vao Cloud.
-        async function addSchedule() {
-            const time =
-                document.getElementById('timeInput').value;
+        if (!response.ok ||
+            result.ok === false) {
+          if (response.status === 401) {
+            managerPin = '';
+            sessionStorage.removeItem('mollyPin');
+          }
 
-            if (!time) {
-                addLog('Vui lòng chọn giờ hẹn.');
-                return;
-            }
-
-            try {
-                const data = await api(
-                    '/api/schedules',
-                    {
-                        method: 'POST',
-
-                        headers: {
-                            'Content-Type':
-                                'application/json'
-                        },
-
-                        body: JSON.stringify({
-                            time
-                        })
-                    }
-                );
-
-                schedules = data.schedules;
-
-                updateScheduleUI();
-
-                addLog(
-                    '✅ Đã lưu lịch ' +
-                    time +
-                    ' trên Server.'
-                );
-
-                if (!data.mqttConnected) {
-                    addLog(
-                        'MQTT mất kết nối; lịch sẽ được đồng bộ khi kết nối lại.'
-                    );
-                }
-
-            } catch (err) {
-                addLog('❌ ' + err.message);
-            }
+          throw new Error(
+            result.message ||
+            'Thao tác không thành công.'
+          );
         }
 
-        // Xoa gio tren Cloud.
-        async function removeSchedule(time) {
-            try {
-                const data = await api(
-                    '/api/schedules/' +
-                    encodeURIComponent(time),
-                    {
-                        method: 'DELETE'
-                    }
-                );
+        return result;
+      }
+    }
 
-                schedules = data.schedules;
+    // ===== NHAT KY =====
+    function addLog(message) {
+      const box = document.getElementById(
+        'logContent'
+      );
 
-                updateScheduleUI();
+      const item = document.createElement('div');
 
-                addLog(
-                    '✅ Đã xóa lịch ' +
-                    time +
-                    ' trên Server.'
-                );
+      item.className = 'msg-sys';
 
-                if (!data.mqttConnected) {
-                    addLog(
-                        'MQTT mất kết nối; ESP32 sẽ nhận thay đổi sau khi kết nối lại.'
-                    );
-                }
+      item.textContent =
+        '[' +
+        new Date().toLocaleTimeString(
+          'vi-VN', { hour12: false }
+        ) +
+        '] ' + message;
 
-            } catch (err) {
-                addLog('❌ ' + err.message);
-            }
+      box.appendChild(item);
+      box.scrollTop = box.scrollHeight;
+    }
+
+    // ===== CHE DO =====
+    function updateModeUI(mode) {
+      currentMode = mode.toLowerCase();
+
+      document.getElementById(
+        'btnManual'
+      ).classList.toggle(
+        'active', currentMode === 'manual'
+      );
+
+      document.getElementById(
+        'btnAuto'
+      ).classList.toggle(
+        'active', currentMode === 'auto'
+      );
+
+      const btn = document.getElementById(
+        'btnFeedNow'
+      );
+
+      btn.disabled =
+        currentMode === 'auto' ||
+        feedPending;
+
+      btn.textContent = feedPending
+        ? 'ĐANG CHỜ ESP32 XÁC NHẬN...'
+        : currentMode === 'auto'
+          ? 'ĐANG Ở CHẾ ĐỘ TỰ ĐỘNG'
+          : 'CHO ĂN NGAY';
+    }
+
+    async function setMode(mode) {
+      try {
+        const data = await api('/api/mode', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            mode: mode.toUpperCase()
+          })
+        });
+
+        updateModeUI(data.mode);
+
+        addLog(
+          'Đã đặt chế độ ' +
+          (mode === 'auto'
+            ? 'TỰ ĐỘNG'
+            : 'THỦ CÔNG') +
+          '.'
+        );
+
+        if (!data.mqttConnected) {
+          addLog(
+            'MQTT mất kết nối; ESP32 sẽ đồng bộ lại.'
+          );
         }
+      } catch (err) {
+        addLog('❌ ' + err.message);
+      }
+    }
 
-        // Dong bo trang thai tu Server.
-        async function refreshStatus() {
-            try {
-                const data = await api('/api/status');
+    // ===== KET QUA CHO AN =====
+    function showFeedEvent(event) {
+      if (!event ||
+          !event.id ||
+          shownFeedIds.has(event.id)) {
+        return;
+      }
 
-                const status =
-                    document.getElementById(
-                        'connectionState'
-                    );
+      shownFeedIds.add(event.id);
 
-                status.textContent =
-                    data.mqttConnected
-                        ? '● Cloud và MQTT đang kết nối'
-                        : '● Cloud hoạt động, MQTT mất kết nối';
+      if (shownFeedIds.size > 500) {
+        shownFeedIds.clear();
+      }
 
-                document.getElementById(
-                    'revisionState'
-                ).textContent =
-                    '☁️ Lịch lưu trên ' +
-                    (
-                        data.storage === 'upstash'
-                            ? 'Upstash Redis'
-                            : 'Server'
-                    ) +
-                    ' • Phiên bản dữ liệu: ' +
-                    data.revision;
+      if (event.status === 'DONE') {
+        const source =
+          event.source === 'AUTO'
+            ? 'tự động'
+            : 'thủ công';
 
-                status.style.color =
-                    data.mqttConnected
-                        ? '#218838'
-                        : '#dc3545';
+        addLog(
+          '✅ ESP32 xác nhận đã phát đủ lệnh bước (' +
+          source +
+          (event.time ? ', ' + event.time : '') +
+          ').'
+        );
+      }
+      else {
+        addLog(
+          '❌ ESP32 báo lỗi khi thực hiện lệnh cho ăn.'
+        );
+      }
+    }
 
-                // Dong bo che do giua cac Web.
-                if (
-                    data.mode &&
-                    data.mode.toLowerCase() !== currentMode
-                ) {
-                    updateModeUI(data.mode);
+    // ===== CHO AN THU CONG =====
+    async function feedFish() {
+      if (feedPending ||
+          currentMode === 'auto') {
+        return;
+      }
 
-                    addLog(
-                        'Đồng bộ chế độ từ hệ thống: ' +
-                        data.mode +
-                        '.'
-                    );
-                }
+      feedPending = true;
+      updateModeUI(currentMode);
 
-                // Dong bo lich giua cac Web.
-                if (
-                    JSON.stringify(schedules) !==
-                    JSON.stringify(data.schedules)
-                ) {
-                    schedules = data.schedules;
+      addLog(
+        'Đã gửi yêu cầu cho ăn, chờ ESP32 xác nhận...'
+      );
 
-                    updateScheduleUI();
+      try {
+        const data = await api('/api/feed', {
+          method: 'POST'
+        });
 
-                    if (loadedOnce) {
-                        addLog(
-                            '🔄 Lịch cho ăn vừa được đồng bộ từ thiết bị khác.'
-                        );
-                    }
-                }
-
-                lastRevision = data.revision;
-                loadedOnce = true;
-
-                // Cap nhat muc thuc an.
-                const progress =
-                    document.getElementById(
-                        'foodProgress'
-                    );
-
-                const warning =
-                    document.getElementById(
-                        'warningText'
-                    );
-
-                const stale =
-                    !data.foodLevelAt ||
-                    Date.now() - data.foodLevelAt > 15000;
-
-                if (
-                    data.foodLevel === null ||
-                    stale
-                ) {
-                    progress.style.width = '100%';
-                    progress.style.background = '#888';
-
-                    progress.textContent =
-                        '--% (chưa có dữ liệu mới)';
-
-                    warning.style.display = 'none';
-
-                } else {
-                    const level = data.foodLevel;
-
-                    progress.style.width =
-                        level + '%';
-
-                    progress.style.background =
-                        level <= 25
-                            ? '#dc3545'
-                            : '#28a745';
-
-                    progress.textContent =
-                        level + '%';
-
-                    warning.style.display =
-                        level <= 25
-                            ? 'block'
-                            : 'none';
-
-                    warning.textContent =
-                        '⚠️ CẢNH BÁO: Thức ăn còn 25% trở xuống!';
-                }
-
-            } catch (err) {
-                const status =
-                    document.getElementById(
-                        'connectionState'
-                    );
-
-                status.textContent =
-                    '● Không kết nối được Web Server';
-
-                status.style.color = '#dc3545';
-            }
-        }
-
-        // Nhan nhat ky hoat dong tu Server.
-        async function refreshActivity() {
-            try {
-                const data = await api(
-                    '/api/activity?after=' +
-                    lastActivitySeq
-                );
-
-                for (const event of data.events) {
-                    lastActivitySeq = Math.max(
-                        lastActivitySeq,
-                        event.seq
-                    );
-
-                    if (event.type === 'feed') {
-                        showFeedEvent(event);
-                    }
-                }
-
-            } catch {
-                // Mat ket noi se thu lai.
-            }
-        }
-
-        // Khoi dong giao dien.
-        updateClock();
+        showFeedEvent(data.event);
+      }
+      catch (err) {
+        addLog('⚠️ ' + err.message);
+      }
+      finally {
+        feedPending = false;
         updateModeUI(currentMode);
+      }
+    }
 
-        refreshStatus();
-        refreshActivity();
+    // ===== HIEN THI LICH =====
+    function updateScheduleUI() {
+      const list =
+        document.getElementById('scheduleList');
 
-        setInterval(updateClock, 1000);
+      list.textContent = '';
 
-        // Dong bo moi 3 giay.
-        setInterval(() => {
-            refreshStatus();
-            refreshActivity();
-        }, 3000);
-    </script>
+      for (const time of schedules) {
+        const li = document.createElement('li');
+        const label = document.createElement('span');
+        const del = document.createElement('button');
 
+        label.textContent = time;
+        del.className = 'btn-delete';
+        del.textContent = 'Xóa';
+
+        del.onclick = () => removeSchedule(time);
+
+        li.append(label, del);
+        list.appendChild(li);
+      }
+    }
+
+    async function addSchedule() {
+      const time =
+        document.getElementById('timeInput').value;
+
+      if (!time) {
+        addLog('Vui lòng chọn giờ hẹn.');
+        return;
+      }
+
+      try {
+        const data = await api(
+          '/api/schedules',
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ time })
+          }
+        );
+
+        schedules = data.schedules;
+        updateScheduleUI();
+
+        addLog(
+          '✅ Đã lưu lịch ' + time + ' lên Cloud.'
+        );
+      }
+      catch (err) {
+        addLog('❌ ' + err.message);
+      }
+    }
+
+    async function removeSchedule(time) {
+      try {
+        const data = await api(
+          '/api/schedules/' +
+          encodeURIComponent(time),
+          { method: 'DELETE' }
+        );
+
+        schedules = data.schedules;
+        updateScheduleUI();
+
+        addLog(
+          '✅ Đã xóa lịch ' + time + '.'
+        );
+      }
+      catch (err) {
+        addLog('❌ ' + err.message);
+      }
+    }
+
+    // ===== GIAM SAT ACS712 =====
+    function renderMotor(data) {
+      const m = data.motor;
+
+      const stateBox = document.getElementById(
+        'motorState'
+      );
+
+      if (!m) {
+        stateBox.className = 'motor-status';
+        stateBox.textContent =
+          'Chưa có kết quả đo từ ESP32';
+        return;
+      }
+
+      document.getElementById(
+        'motorAverage'
+      ).textContent =
+        m.current_mA.toFixed(2) + ' mA';
+
+      document.getElementById(
+        'motorRolling'
+      ).textContent =
+        m.rolling_max_mA.toFixed(2) + ' mA';
+
+      document.getElementById(
+        'motorVoltage'
+      ).textContent =
+        (m.vcc_mV / 1000).toFixed(3) + ' V';
+
+      document.getElementById(
+        'motorThreshold'
+      ).textContent =
+        m.threshold_mA.toFixed(0) +
+        ' mA (thử nghiệm)';
+
+      // Hien thi canh bao.
+      if (m.state === 'HIGH_CURRENT_RISK') {
+        stateBox.className =
+          'motor-status warning';
+
+        stateBox.textContent =
+          '⚠️ DÒNG ĐIỆN CAO – ' +
+          'CÓ NGUY CƠ KẸT CƠ CẤU. ' +
+          'Vui lòng kiểm tra đĩa quay và động cơ.';
+      }
+      else if (m.state === 'WATCH') {
+        stateBox.className =
+          'motor-status watch';
+
+        stateBox.textContent =
+          '⚠️ Dòng điện gần ngưỡng cao, ' +
+          'cần theo dõi.';
+      }
+      else if (m.state === 'NORMAL') {
+        stateBox.className =
+          'motor-status normal';
+
+        stateBox.textContent =
+          '✓ Dòng điện trong vùng tham chiếu.';
+      }
+      else {
+        stateBox.className =
+          'motor-status watch';
+
+        stateBox.textContent =
+          'Trạng thái: ' +
+          m.state +
+          ' – vui lòng kiểm tra.';
+      }
+
+      // Thoi diem server nhan tin.
+      const receivedAt = data.motorUpdatedAt;
+
+      let ageText = '';
+
+      if (receivedAt) {
+        const age = Math.max(
+          0,
+          Math.round(
+            (Date.now() - receivedAt) / 1000
+          )
+        );
+
+        ageText =
+          age < 60
+            ? age + ' giây'
+            : Math.round(age / 60) + ' phút';
+      }
+
+      document.getElementById(
+        'motorAge'
+      ).textContent =
+        'Kết quả lần cho ăn gần nhất' +
+        (m.time ? ' (' + m.time + ')' : '') +
+        (ageText
+          ? ' • Server nhận ' + ageText + ' trước'
+          : '') +
+        '. Không phải phép đo liên tục.';
+    }
+
+    // ===== CAP NHAT TRANG THAI =====
+    async function refreshStatus() {
+      try {
+        const data = await api('/api/status');
+
+        const status = document.getElementById(
+          'connectionState'
+        );
+
+        status.textContent =
+          data.mqttConnected
+            ? '● Cloud và MQTT đang kết nối'
+            : '● Cloud hoạt động, MQTT mất kết nối';
+
+        status.style.color =
+          data.mqttConnected
+            ? '#218838'
+            : '#dc3545';
+
+        document.getElementById(
+          'revisionState'
+        ).textContent =
+          '☁️ Lịch lưu trên Upstash Redis' +
+          ' • Phiên bản dữ liệu: ' +
+          data.revision;
+
+        if (data.mode &&
+            data.mode.toLowerCase() !== currentMode) {
+          updateModeUI(data.mode);
+        }
+
+        if (JSON.stringify(schedules) !==
+            JSON.stringify(data.schedules)) {
+          schedules = data.schedules;
+          updateScheduleUI();
+
+          if (loadedOnce) {
+            addLog(
+              '🔄 Lịch cho ăn đã đồng bộ từ Cloud.'
+            );
+          }
+        }
+
+        loadedOnce = true;
+
+        // ACS712
+        renderMotor(data);
+
+        // HC-SR04
+        const progress = document.getElementById(
+          'foodProgress'
+        );
+
+        const warning = document.getElementById(
+          'warningText'
+        );
+
+        const stale =
+          !data.foodLevelAt ||
+          Date.now() - data.foodLevelAt > 15000;
+
+        if (data.foodLevel === null || stale) {
+          progress.style.width = '100%';
+          progress.style.background = '#888';
+
+          progress.textContent =
+            '--% (chưa có dữ liệu mới)';
+
+          warning.style.display = 'none';
+        }
+        else {
+          const level = data.foodLevel;
+
+          progress.style.width = level + '%';
+
+          progress.style.background =
+            level <= 25
+              ? '#dc3545'
+              : '#28a745';
+
+          progress.textContent =
+            level + '%';
+
+          warning.style.display =
+            level <= 25 ? 'block' : 'none';
+
+          warning.textContent =
+            '⚠️ CẢNH BÁO: Thức ăn còn 25% trở xuống!';
+        }
+      }
+      catch (err) {
+        const box = document.getElementById(
+          'connectionState'
+        );
+
+        box.textContent =
+          '● Không kết nối được Web Server';
+
+        box.style.color = '#dc3545';
+      }
+    }
+
+    // ===== NHAT KY MQTT =====
+    async function refreshActivity() {
+      try {
+        const data = await api(
+          '/api/activity?after=' + lastActivitySeq
+        );
+
+        for (const event of data.events) {
+          lastActivitySeq = Math.max(
+            lastActivitySeq, event.seq
+          );
+
+          if (event.type === 'feed') {
+            showFeedEvent(event);
+          }
+
+          if (event.type === 'motor_warning') {
+            addLog(
+              '⚠️ DÒNG ĐIỆN CAO – ' +
+              'CÓ NGUY CƠ KẸT CƠ CẤU. ' +
+              'Rolling MAX: ' +
+              Number(
+                event.rolling_max_mA
+              ).toFixed(2) +
+              ' mA. Hãy kiểm tra máy.'
+            );
+          }
+        }
+      }
+      catch {
+        // Thu lai trong chu ky tiep theo.
+      }
+    }
+
+    // ===== KHOI DONG WEB =====
+    updateClock();
+    updateModeUI(currentMode);
+    refreshStatus();
+    refreshActivity();
+
+    setInterval(updateClock, 1000);
+
+    setInterval(() => {
+      refreshStatus();
+      refreshActivity();
+    }, 3000);
+  </script>
 </body>
 </html>
