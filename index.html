@@ -3,12 +3,13 @@
 <html lang="vi">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport"
-        content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Quản Lý Bể Cá Molly</title>
 
   <style>
-    * { box-sizing: border-box; }
+    * {
+      box-sizing: border-box;
+    }
 
     body {
       text-align: center;
@@ -48,7 +49,8 @@
       margin-bottom: 9px;
     }
 
-    .food-box, .motor-box {
+    .food-box,
+    .motor-box {
       background: #fffafb;
       border: 1px solid #ffb6c1;
       border-radius: 9px;
@@ -83,7 +85,8 @@
       display: none;
     }
 
-    /* GIAM SAT DONG DIEN */
+    /* GIAM SAT DONG DIEN ACS712 */
+
     .motor-box {
       text-align: left;
     }
@@ -146,6 +149,8 @@
       line-height: 1.5;
     }
 
+    /* CHE DO HOAT DONG */
+
     .mode-switch {
       display: flex;
       margin-bottom: 20px;
@@ -187,6 +192,8 @@
       color: #666;
       cursor: not-allowed;
     }
+
+    /* LICH CHO AN */
 
     .timer-box {
       border-top: 2px dashed #ffb6c1;
@@ -236,6 +243,8 @@
       cursor: pointer;
     }
 
+    /* NHAT KY */
+
     .log-box {
       border: 1px solid #ffb6c1;
       border-radius: 8px;
@@ -277,6 +286,7 @@
   <div class="container">
 
     <h1>Bể Cá Molly 🐠</h1>
+
     <div id="clock">00:00:00</div>
 
     <div id="connectionState" class="cloud-info">
@@ -288,14 +298,19 @@
     </div>
 
     <!-- MUC THUC AN -->
+
     <div class="food-box">
       <h3 style="margin:0;color:#555;font-size:16px">
         📊 Lượng Thức Ăn Còn Lại
       </h3>
 
       <div class="food-bar-bg">
-        <div id="foodProgress"
-             class="food-bar-fill">--%</div>
+        <div
+          id="foodProgress"
+          class="food-bar-fill"
+        >
+          --%
+        </div>
       </div>
 
       <div id="warningText" class="warning-text">
@@ -303,13 +318,16 @@
       </div>
     </div>
 
-    <!-- GIAM SAT DONG DIEN ACS712 -->
+    <!-- GIAM SAT DONG DIEN -->
+
     <div class="motor-box" aria-live="polite">
+
       <h3 style="margin:0;color:#555;font-size:16px">
         ⚙️ Giám Sát Dòng Động Cơ
       </h3>
 
       <div class="motor-grid">
+
         <div class="motor-value">
           <small>Dòng trung bình</small>
           <span id="motorAverage">-- mA</span>
@@ -327,47 +345,56 @@
 
         <div class="motor-value">
           <small>Ngưỡng cảnh báo</small>
-          <span id="motorThreshold">
-            280 mA 
-          </span>
+          <span id="motorThreshold">280 mA</span>
         </div>
+
       </div>
 
       <div id="motorState" class="motor-status">
         Chưa có kết quả đo từ ESP32
       </div>
 
+      <!-- CHI HIEN THI LAN DO GAN NHAT -->
       <div id="motorAge" class="motor-age">
-        Dữ liệu cập nhật sau mỗi lần cho ăn.
+        Lần đo gần nhất: --:--
       </div>
+
     </div>
 
-    <!-- CHE DO -->
+    <!-- CHE DO HOAT DONG -->
+
     <div class="mode-switch">
+
       <button
         id="btnManual"
         class="mode-btn active"
-        onclick="setMode('manual')">
+        onclick="setMode('manual')"
+      >
         🖐 THỦ CÔNG
       </button>
 
       <button
         id="btnAuto"
         class="mode-btn"
-        onclick="setMode('auto')">
+        onclick="setMode('auto')"
+      >
         ⏳ TỰ ĐỘNG
       </button>
+
     </div>
 
     <button
       id="btnFeedNow"
       class="btn-feed"
-      onclick="feedFish()">
+      onclick="feedFish()"
+    >
       CHO ĂN NGAY
     </button>
 
     <!-- LICH CHO AN -->
+
     <div class="timer-box">
+
       <h3 style="color:#555;font-size:16px">
         ⏰ Lịch Cho Ăn Tự Động (tối đa 20 giờ)
       </h3>
@@ -376,15 +403,19 @@
 
       <button
         class="btn-add"
-        onclick="addSchedule()">
+        onclick="addSchedule()"
+      >
         Thêm Giờ
       </button>
 
       <ul id="scheduleList"></ul>
+
     </div>
 
-    <!-- NHAT KY -->
+    <!-- NHAT KY HOAT DONG -->
+
     <div class="log-box">
+
       <div class="log-header">
         📋 Nhật Ký Hoạt Động
       </div>
@@ -394,13 +425,19 @@
           Hệ thống đã khởi động thành công!
         </div>
       </div>
+
     </div>
 
   </div>
 
   <script>
-    // ===== BIEN WEB =====
+
+    // ==========================================
+    // 1. BIEN HE THONG WEB
+    // ==========================================
+
     let schedules = [];
+
     let managerPin =
       sessionStorage.getItem('mollyPin') || '';
 
@@ -411,7 +448,10 @@
 
     const shownFeedIds = new Set();
 
-    // ===== DONG HO =====
+    // ==========================================
+    // 2. DONG HO
+    // ==========================================
+
     function updateClock() {
       document.getElementById('clock').textContent =
         new Date().toLocaleTimeString(
@@ -420,13 +460,18 @@
         );
     }
 
-    // ===== GOI API =====
+    // ==========================================
+    // 3. GOI API
+    // ==========================================
+
     async function api(url, options = {}) {
+
       const isWrite =
         options.method &&
         options.method.toUpperCase() !== 'GET';
 
       for (let attempt = 0; attempt < 2; attempt++) {
+
         const headers = {
           ...(options.headers || {})
         };
@@ -443,15 +488,19 @@
             headers,
             cache: 'no-store'
           });
-        } catch {
+        }
+        catch {
           throw new Error(
             'Không kết nối được Web Server.'
           );
         }
 
-        if (response.status === 401 &&
-            isWrite &&
-            attempt === 0) {
+        if (
+          response.status === 401 &&
+          isWrite &&
+          attempt === 0
+        ) {
+
           const input = window.prompt(
             'Nhập mã PIN điều khiển Molly:'
           );
@@ -465,7 +514,8 @@
           managerPin = input;
 
           sessionStorage.setItem(
-            'mollyPin', managerPin
+            'mollyPin',
+            managerPin
           );
 
           continue;
@@ -475,14 +525,15 @@
 
         try {
           result = await response.json();
-        } catch {
+        }
+        catch {
           throw new Error(
             'Server trả về dữ liệu không hợp lệ.'
           );
         }
 
-        if (!response.ok ||
-            result.ok === false) {
+        if (!response.ok || result.ok === false) {
+
           if (response.status === 401) {
             managerPin = '';
             sessionStorage.removeItem('mollyPin');
@@ -498,8 +549,12 @@
       }
     }
 
-    // ===== NHAT KY =====
+    // ==========================================
+    // 4. NHAT KY HOAT DONG
+    // ==========================================
+
     function addLog(message) {
+
       const box = document.getElementById(
         'logContent'
       );
@@ -511,28 +566,36 @@
       item.textContent =
         '[' +
         new Date().toLocaleTimeString(
-          'vi-VN', { hour12: false }
+          'vi-VN',
+          { hour12: false }
         ) +
-        '] ' + message;
+        '] ' +
+        message;
 
       box.appendChild(item);
       box.scrollTop = box.scrollHeight;
     }
 
-    // ===== CHE DO =====
+    // ==========================================
+    // 5. CAP NHAT GIAO DIEN CHE DO
+    // ==========================================
+
     function updateModeUI(mode) {
+
       currentMode = mode.toLowerCase();
 
       document.getElementById(
         'btnManual'
       ).classList.toggle(
-        'active', currentMode === 'manual'
+        'active',
+        currentMode === 'manual'
       );
 
       document.getElementById(
         'btnAuto'
       ).classList.toggle(
-        'active', currentMode === 'auto'
+        'active',
+        currentMode === 'auto'
       );
 
       const btn = document.getElementById(
@@ -550,13 +613,21 @@
           : 'CHO ĂN NGAY';
     }
 
+    // ==========================================
+    // 6. CHUYEN CHE DO
+    // ==========================================
+
     async function setMode(mode) {
+
       try {
+
         const data = await api('/api/mode', {
           method: 'POST',
+
           headers: {
             'Content-Type': 'application/json'
           },
+
           body: JSON.stringify({
             mode: mode.toUpperCase()
           })
@@ -566,9 +637,11 @@
 
         addLog(
           'Đã đặt chế độ ' +
-          (mode === 'auto'
-            ? 'TỰ ĐỘNG'
-            : 'THỦ CÔNG') +
+          (
+            mode === 'auto'
+              ? 'TỰ ĐỘNG'
+              : 'THỦ CÔNG'
+          ) +
           '.'
         );
 
@@ -577,16 +650,24 @@
             'MQTT mất kết nối; ESP32 sẽ đồng bộ lại.'
           );
         }
-      } catch (err) {
+
+      }
+      catch (err) {
         addLog('❌ ' + err.message);
       }
     }
 
-    // ===== KET QUA CHO AN =====
+    // ==========================================
+    // 7. HIEN THI KET QUA CHO AN
+    // ==========================================
+
     function showFeedEvent(event) {
-      if (!event ||
-          !event.id ||
-          shownFeedIds.has(event.id)) {
+
+      if (
+        !event ||
+        !event.id ||
+        shownFeedIds.has(event.id)
+      ) {
         return;
       }
 
@@ -597,6 +678,7 @@
       }
 
       if (event.status === 'DONE') {
+
         const source =
           event.source === 'AUTO'
             ? 'tự động'
@@ -608,6 +690,7 @@
           (event.time ? ', ' + event.time : '') +
           ').'
         );
+
       }
       else {
         addLog(
@@ -616,10 +699,16 @@
       }
     }
 
-    // ===== CHO AN THU CONG =====
+    // ==========================================
+    // 8. CHO AN THU CONG
+    // ==========================================
+
     async function feedFish() {
-      if (feedPending ||
-          currentMode === 'auto') {
+
+      if (
+        feedPending ||
+        currentMode === 'auto'
+      ) {
         return;
       }
 
@@ -631,11 +720,13 @@
       );
 
       try {
+
         const data = await api('/api/feed', {
           method: 'POST'
         });
 
         showFeedEvent(data.event);
+
       }
       catch (err) {
         addLog('⚠️ ' + err.message);
@@ -646,19 +737,26 @@
       }
     }
 
-    // ===== HIEN THI LICH =====
+    // ==========================================
+    // 9. HIEN THI DANH SACH LICH
+    // ==========================================
+
     function updateScheduleUI() {
-      const list =
-        document.getElementById('scheduleList');
+
+      const list = document.getElementById(
+        'scheduleList'
+      );
 
       list.textContent = '';
 
       for (const time of schedules) {
+
         const li = document.createElement('li');
         const label = document.createElement('span');
         const del = document.createElement('button');
 
         label.textContent = time;
+
         del.className = 'btn-delete';
         del.textContent = 'Xóa';
 
@@ -669,9 +767,15 @@
       }
     }
 
+    // ==========================================
+    // 10. THEM LICH CHO AN
+    // ==========================================
+
     async function addSchedule() {
-      const time =
-        document.getElementById('timeInput').value;
+
+      const time = document.getElementById(
+        'timeInput'
+      ).value;
 
       if (!time) {
         addLog('Vui lòng chọn giờ hẹn.');
@@ -679,13 +783,16 @@
       }
 
       try {
+
         const data = await api(
           '/api/schedules',
           {
             method: 'POST',
+
             headers: {
               'Content-Type': 'application/json'
             },
+
             body: JSON.stringify({ time })
           }
         );
@@ -694,16 +801,25 @@
         updateScheduleUI();
 
         addLog(
-          '✅ Đã lưu lịch ' + time + ' lên Cloud.'
+          '✅ Đã lưu lịch ' +
+          time +
+          ' lên Cloud.'
         );
+
       }
       catch (err) {
         addLog('❌ ' + err.message);
       }
     }
 
+    // ==========================================
+    // 11. XOA LICH CHO AN
+    // ==========================================
+
     async function removeSchedule(time) {
+
       try {
+
         const data = await api(
           '/api/schedules/' +
           encodeURIComponent(time),
@@ -716,50 +832,92 @@
         addLog(
           '✅ Đã xóa lịch ' + time + '.'
         );
+
       }
       catch (err) {
         addLog('❌ ' + err.message);
       }
     }
 
-    // ===== GIAM SAT ACS712 =====
+    // ==========================================
+    // 12. GIAM SAT DONG DIEN ACS712
+    // ==========================================
+
     function renderMotor(data) {
+
       const m = data.motor;
 
       const stateBox = document.getElementById(
         'motorState'
       );
 
+      // Chua co du lieu
+
       if (!m) {
+
         stateBox.className = 'motor-status';
+
         stateBox.textContent =
           'Chưa có kết quả đo từ ESP32';
+
+        document.getElementById(
+          'motorAverage'
+        ).textContent = '-- mA';
+
+        document.getElementById(
+          'motorRolling'
+        ).textContent = '-- mA';
+
+        document.getElementById(
+          'motorVoltage'
+        ).textContent = '-- V';
+
+        document.getElementById(
+          'motorAge'
+        ).textContent =
+          'Lần đo gần nhất: --:--';
+
         return;
       }
+
+      // Dong trung binh
 
       document.getElementById(
         'motorAverage'
       ).textContent =
-        m.current_mA.toFixed(2) + ' mA';
+        Number(m.current_mA).toFixed(2) +
+        ' mA';
+
+      // Rolling MAX
 
       document.getElementById(
         'motorRolling'
       ).textContent =
-        m.rolling_max_mA.toFixed(2) + ' mA';
+        Number(m.rolling_max_mA).toFixed(2) +
+        ' mA';
+
+      // Dien ap nguon
 
       document.getElementById(
         'motorVoltage'
       ).textContent =
-        (m.vcc_mV / 1000).toFixed(3) + ' V';
+        (Number(m.vcc_mV) / 1000).toFixed(3) +
+        ' V';
+
+      // Nguong canh bao
 
       document.getElementById(
         'motorThreshold'
       ).textContent =
-        m.threshold_mA.toFixed(0) +
-        ' mA ';
+        Number(m.threshold_mA ?? 280).toFixed(0) +
+        ' mA';
 
-      // Hien thi canh bao.
+      // ======================================
+      // HIEN THI TRANG THAI
+      // ======================================
+
       if (m.state === 'HIGH_CURRENT_RISK') {
+
         stateBox.className =
           'motor-status warning';
 
@@ -767,23 +925,29 @@
           '⚠️ DÒNG ĐIỆN CAO – ' +
           'CÓ NGUY CƠ KẸT CƠ CẤU. ' +
           'Vui lòng kiểm tra đĩa quay và động cơ.';
+
       }
       else if (m.state === 'WATCH') {
+
         stateBox.className =
           'motor-status watch';
 
         stateBox.textContent =
           '⚠️ Dòng điện gần ngưỡng cao, ' +
           'cần theo dõi.';
+
       }
       else if (m.state === 'NORMAL') {
+
         stateBox.className =
           'motor-status normal';
 
         stateBox.textContent =
           '✓ Dòng điện trong vùng tham chiếu.';
+
       }
       else {
+
         stateBox.className =
           'motor-status watch';
 
@@ -793,17 +957,30 @@
           ' – vui lòng kiểm tra.';
       }
 
-     
-      // Hien thi gio do dong gan nhat
+      // ======================================
+      // CHI HIEN THI LAN DO GAN NHAT
+      // ======================================
+
       document.getElementById(
         'motorAge'
       ).textContent =
         'Lần đo gần nhất: ' +
-        (m.time ? m.time : '--:--');
+        (
+          m.time && m.time !== '--:--'
+            ? m.time
+            : '--:--'
+        );
 
-    // ===== CAP NHAT TRANG THAI =====
+    } // KET THUC HAM renderMotor
+
+    // ==========================================
+    // 13. CAP NHAT TRANG THAI WEB
+    // ==========================================
+
     async function refreshStatus() {
+
       try {
+
         const data = await api('/api/status');
 
         const status = document.getElementById(
@@ -827,13 +1004,23 @@
           ' • Phiên bản dữ liệu: ' +
           data.revision;
 
-        if (data.mode &&
-            data.mode.toLowerCase() !== currentMode) {
+        // Dong bo che do
+
+        if (
+          data.mode &&
+          data.mode.toLowerCase() !== currentMode
+        ) {
           updateModeUI(data.mode);
         }
 
-        if (JSON.stringify(schedules) !==
-            JSON.stringify(data.schedules)) {
+        // Dong bo lich
+
+        if (
+          Array.isArray(data.schedules) &&
+          JSON.stringify(schedules) !==
+          JSON.stringify(data.schedules)
+        ) {
+
           schedules = data.schedules;
           updateScheduleUI();
 
@@ -846,10 +1033,16 @@
 
         loadedOnce = true;
 
-        // ACS712
+        // ======================================
+        // CAP NHAT DU LIEU ACS712
+        // ======================================
+
         renderMotor(data);
 
-        // HC-SR04
+        // ======================================
+        // CAP NHAT MUC THUC AN HC-SR04
+        // ======================================
+
         const progress = document.getElementById(
           'foodProgress'
         );
@@ -862,7 +1055,11 @@
           !data.foodLevelAt ||
           Date.now() - data.foodLevelAt > 15000;
 
-        if (data.foodLevel === null || stale) {
+        if (
+          data.foodLevel == null ||
+          stale
+        ) {
+
           progress.style.width = '100%';
           progress.style.background = '#888';
 
@@ -870,8 +1067,10 @@
             '--% (chưa có dữ liệu mới)';
 
           warning.style.display = 'none';
+
         }
         else {
+
           const level = data.foodLevel;
 
           progress.style.width = level + '%';
@@ -881,8 +1080,7 @@
               ? '#dc3545'
               : '#28a745';
 
-          progress.textContent =
-            level + '%';
+          progress.textContent = level + '%';
 
           warning.style.display =
             level <= 25 ? 'block' : 'none';
@@ -890,8 +1088,10 @@
           warning.textContent =
             '⚠️ CẢNH BÁO: Thức ăn còn 25% trở xuống!';
         }
+
       }
       catch (err) {
+
         const box = document.getElementById(
           'connectionState'
         );
@@ -900,26 +1100,43 @@
           '● Không kết nối được Web Server';
 
         box.style.color = '#dc3545';
+
+        console.error(
+          'Loi cap nhat trang thai:',
+          err
+        );
       }
     }
 
-    // ===== NHAT KY MQTT =====
+    // ==========================================
+    // 14. CAP NHAT NHAT KY MQTT
+    // ==========================================
+
     async function refreshActivity() {
+
       try {
+
         const data = await api(
           '/api/activity?after=' + lastActivitySeq
         );
 
         for (const event of data.events) {
+
           lastActivitySeq = Math.max(
-            lastActivitySeq, event.seq
+            lastActivitySeq,
+            event.seq
           );
+
+          // Nhat ky cho an
 
           if (event.type === 'feed') {
             showFeedEvent(event);
           }
 
+          // Nhat ky canh bao dong cao
+
           if (event.type === 'motor_warning') {
+
             addLog(
               '⚠️ DÒNG ĐIỆN CAO – ' +
               'CÓ NGUY CƠ KẸT CƠ CẤU. ' +
@@ -931,24 +1148,40 @@
             );
           }
         }
+
       }
-      catch {
-        // Thu lai trong chu ky tiep theo.
+      catch (err) {
+        console.error(
+          'Loi cap nhat nhat ky:',
+          err
+        );
       }
     }
 
-    // ===== KHOI DONG WEB =====
+    // ==========================================
+    // 15. KHOI DONG WEB
+    // ==========================================
+
     updateClock();
     updateModeUI(currentMode);
+
     refreshStatus();
     refreshActivity();
 
-    setInterval(updateClock, 1000);
+    // Cap nhat dong ho moi 1 giay
+
+    setInterval(
+      updateClock,
+      1000
+    );
+
+    // Cap nhat Cloud, ACS712, nhat ky moi 3 giay
 
     setInterval(() => {
       refreshStatus();
       refreshActivity();
     }, 3000);
+
   </script>
 </body>
 </html>
