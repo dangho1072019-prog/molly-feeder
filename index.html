@@ -793,35 +793,13 @@
           ' – vui lòng kiểm tra.';
       }
 
-      // Thoi diem server nhan tin.
-      const receivedAt = data.motorUpdatedAt;
-
-      let ageText = '';
-
-      if (receivedAt) {
-        const age = Math.max(
-          0,
-          Math.round(
-            (Date.now() - receivedAt) / 1000
-          )
-        );
-
-        ageText =
-          age < 60
-            ? age + ' giây'
-            : Math.round(age / 60) + ' phút';
-      }
-
+     
+      // Hien thi gio do dong gan nhat
       document.getElementById(
         'motorAge'
       ).textContent =
-        'Kết quả lần cho ăn gần nhất' +
-        (m.time ? ' (' + m.time + ')' : '') +
-        (ageText
-          ? ' • Server nhận ' + ageText + ' trước'
-          : '') +
-        '. Không phải phép đo liên tục.';
-    }
+        'Lần đo gần nhất: ' +
+        (m.time ? m.time : '--:--');
 
     // ===== CAP NHAT TRANG THAI =====
     async function refreshStatus() {
