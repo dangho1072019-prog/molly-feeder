@@ -22,18 +22,53 @@ const REDIS_KEY = 'becamolly:settings:v2';
 const MQTT_PREFIX =
   process.env.MOLLY_MQTT_PREFIX || 'molly_tank';
 
+// Cau hinh MQTT flespi tren Render
+const MQTT_URL =
+  (process.env.MOLLY_MQTT_URL ||
+    'mqtts://mqtt.flespi.io:8883').trim();
+
+const FLESPI_TOKEN =
+  (process.env.FLESPI_TOKEN || '').trim();
+
 const ADMIN_PIN =
   process.env.MOLLY_ADMIN_PIN || '';
 
 const MAX_SCHEDULES = 20;
 const FEED_TIMEOUT_MS = 15000;
 
-// Sau 20 giay khong co heartbeat: OFFLINE.
 const ESP_OFFLINE_AFTER_MS = 20000;
+
+// ================= KIEM TRA CAU HINH =================
 
 if (!REDIS_URL.startsWith('https://') ||
     !REDIS_TOKEN) {
   console.error('THIEU CAU HINH UPSTASH REDIS');
+  process.exit(1);
+}
+
+if (!FLESPI_TOKEN) {
+  console.error('THIEU BIEN FLESPI_TOKEN TREN RENDER');
+  process.exit(1);
+}
+
+// Bao dam Token chi duoc gui qua TLS den flespi
+try {
+  const broker = new URL(MQTT_URL);
+
+  if (
+    broker.protocol !== 'mqtts:' ||
+    broker.hostname !== 'mqtt.flespi.io' ||
+    (broker.port && broker.port !== '8883') ||
+    broker.username ||
+    broker.password ||
+    (broker.pathname && broker.pathname !== '/')
+  ) {
+    throw new Error('MQTT URL khong dung');
+  }
+} catch (err) {
+  console.error(
+    'MOLLY_MQTT_URL phai la mqtts://mqtt.flespi.io:8883'
+  );
   process.exit(1);
 }
 
@@ -76,7 +111,6 @@ let motorStatus = null;
 let motorUpdatedAt = null;
 let lastMotorId = null;
 
-// Trang thai ESP32 khac voi ket noi MQTT cua Render.
 let lastEspHeartbeatAt = null;
 let lastEspSignal = 'UNKNOWN';
 let espObserveSince = Date.now();
@@ -100,12 +134,14 @@ function validTime(t) {
 // ================= UPSTASH REDIS =================
 
 function normalize(value) {
-  if (!value ||
-      typeof value !== 'object' ||
-      !Array.isArray(value.schedules) ||
-      !['AUTO', 'MANUAL'].includes(value.mode) ||
-      value.schedules.length > MAX_SCHEDULES ||
-      !value.schedules.every(validTime)) {
+  if (
+    !value ||
+    typeof value !== 'object' ||
+    !Array.isArray(value.schedules) ||
+    !['AUTO', 'MANUAL'].includes(value.mode) ||
+    value.schedules.length > MAX_SCHEDULES ||
+    !value.schedules.every(validTime)
+  ) {
     throw new Error('Du lieu Redis khong hop le');
   }
 
@@ -124,14 +160,11 @@ function normalize(value) {
 async function redisCommand(...parts) {
   const response = await fetch(REDIS_URL, {
     method: 'POST',
-
     headers: {
       Authorization: `Bearer ${REDIS_TOKEN}`,
       'Content-Type': 'application/json'
     },
-
     body: JSON.stringify(parts),
-
     signal: AbortSignal.timeout(10000)
   });
 
@@ -236,30 +269,27 @@ function addActivity(event) {
 // ================= TRANG THAI ESP32 =================
 
 function getEspStatus() {
-  // Render mat MQTT: khong xac dinh duoc ESP32.
   if (!client || !client.connected) {
     return 'UNKNOWN';
   }
 
-  // Last Will hoac ban tin OFFLINE.
   if (lastEspSignal === 'OFFLINE') {
     return 'OFFLINE';
   }
 
-  // Heartbeat moi trong 20 giay.
-  if (lastEspSignal === 'ONLINE' &&
-      lastEspHeartbeatAt !== null &&
-      Date.now() - lastEspHeartbeatAt <=
-      ESP_OFFLINE_AFTER_MS) {
+  if (
+    lastEspSignal === 'ONLINE' &&
+    lastEspHeartbeatAt !== null &&
+    Date.now() - lastEspHeartbeatAt <=
+      ESP_OFFLINE_AFTER_MS
+  ) {
     return 'ONLINE';
   }
 
-  // Da tung nhan heartbeat nhung het han.
   if (lastEspHeartbeatAt !== null) {
     return 'OFFLINE';
   }
 
-  // Render moi khoi dong: cho heartbeat dau tien.
   return (
     Date.now() - espObserveSince >
     ESP_OFFLINE_AFTER_MS
@@ -280,7 +310,10 @@ function syncEspStatusEvent() {
 
   if (
     state === 'OFFLINE' ||
-    (state === 'ONLINE' && previous === 'OFFLINE')
+    (
+      state === 'ONLINE' &&
+      previous === 'OFFLINE'
+    )
   ) {
     addActivity({
       type: 'device_status',
@@ -305,7 +338,6 @@ function onMqttMessage(topic, raw, packet) {
       text === 'ONLINE' &&
       !(packet && packet.retain)
     ) {
-      // Khong lay ONLINE retained cu lam heartbeat.
       lastEspHeartbeatAt = Date.now();
       lastEspSignal = 'ONLINE';
     }
@@ -332,7 +364,7 @@ function onMqttMessage(topic, raw, packet) {
     return;
   }
 
-  // ----- ACS712 -----
+  // ----- CAM BIEN DONG ACS712 -----
 
   if (topic === TOPIC.motor) {
     let data;
@@ -372,7 +404,6 @@ function onMqttMessage(topic, raw, packet) {
       return;
     }
 
-    // Khong ghi lap cung mot lan do.
     if (data.id === lastMotorId) return;
 
     lastMotorId = data.id;
@@ -380,7 +411,9 @@ function onMqttMessage(topic, raw, packet) {
     motorStatus = {
       id: data.id,
       source:
-        data.source === 'AUTO' ? 'AUTO' : 'MANUAL',
+        data.source === 'AUTO'
+          ? 'AUTO'
+          : 'MANUAL',
       state: data.state,
       current_mA: data.current_mA,
       rolling_max_mA: data.rolling_max_mA,
@@ -451,9 +484,13 @@ function onMqttMessage(topic, raw, packet) {
       id: data.id,
       status: data.status,
       source:
-        data.source === 'AUTO' ? 'AUTO' : 'MANUAL',
+        data.source === 'AUTO'
+          ? 'AUTO'
+          : 'MANUAL',
       time:
-        validTime(data.time) ? data.time : '',
+        validTime(data.time)
+          ? data.time
+          : '',
       receivedAt: new Date().toISOString()
     });
 
@@ -473,7 +510,8 @@ function onMqttMessage(topic, raw, packet) {
   }
 
   // Redis la nguon chinh cua lich va che do.
-  // Bo qua cac tin retained cu.
+  // Bo qua tin retained cu.
+
   if (packet && packet.retain) return;
 
   // ----- DOI CHE DO -----
@@ -545,7 +583,10 @@ function requirePin(req, res, next) {
 }
 
 function errorResponse(res, error) {
-  console.error('REQUEST ERROR:', error.message);
+  console.error(
+    'REQUEST ERROR:',
+    error.message
+  );
 
   return res.status(503).json({
     ok: false,
@@ -579,6 +620,8 @@ function status() {
     storage: 'upstash'
   };
 }
+
+// ================= API WEB =================
 
 app.get('/', (req, res) => {
   res.sendFile(
@@ -634,7 +677,8 @@ app.post(
         }
 
         if (
-          draft.schedules.length >= MAX_SCHEDULES
+          draft.schedules.length >=
+          MAX_SCHEDULES
         ) {
           throw new Error('LIMIT');
         }
@@ -694,7 +738,9 @@ app.delete(
         }
 
         draft.schedules =
-          draft.schedules.filter(x => x !== time);
+          draft.schedules.filter(
+            x => x !== time
+          );
 
         return draft;
       });
@@ -725,10 +771,9 @@ app.post(
   '/api/mode',
   requirePin,
   async (req, res) => {
-    const selected =
-      String(
-        (req.body && req.body.mode) || ''
-      ).toUpperCase();
+    const selected = String(
+      (req.body && req.body.mode) || ''
+    ).toUpperCase();
 
     if (!['AUTO', 'MANUAL'].includes(selected)) {
       return res.status(400).json({
@@ -779,7 +824,8 @@ async function feed(req, res) {
     return res.status(409).json({
       ok: false,
       message:
-        'Chuyển sang Thủ công trước khi cho ăn ngay.'
+        'Chuyển sang Thủ công trước ' +
+        'khi cho ăn ngay.'
     });
   }
 
@@ -849,7 +895,6 @@ app.post('/api/feed', requirePin, feed);
 
 // ================= API TUONG THICH =================
 
-// Giữ tương thích với các ứng dụng cũ.
 app.get('/feed', requirePin, feed);
 
 app.get(
@@ -871,7 +916,9 @@ app.get(
         return draft;
       });
 
-      res.send('Đã đổi chế độ: ' + selected);
+      res.send(
+        'Đã đổi chế độ: ' + selected
+      );
     }
     catch {
       res.status(503).send(
@@ -897,7 +944,10 @@ app.get(
     try {
       await updateSettings(draft => {
         if (!draft.schedules.includes(time)) {
-          if (draft.schedules.length >= MAX_SCHEDULES) {
+          if (
+            draft.schedules.length >=
+            MAX_SCHEDULES
+          ) {
             throw new Error('LIMIT');
           }
 
@@ -955,21 +1005,29 @@ async function start() {
     );
   }
 
-  client = mqtt.connect(
-    process.env.MOLLY_MQTT_URL ||
-      'mqtt://broker.hivemq.com',
-    {
-      clientId:
-        'molly_cloud_' +
-        crypto.randomBytes(6).toString('hex'),
-      reconnectPeriod: 3000
-    }
-  );
+  // ================= MQTT FLESPI =================
+
+  client = mqtt.connect(MQTT_URL, {
+    username: FLESPI_TOKEN,
+
+    clientId:
+      'molly_cloud_' +
+      crypto.randomBytes(6).toString('hex'),
+
+    protocolVersion: 4,
+    clean: true,
+    keepalive: 60,
+    connectTimeout: 30000,
+    reconnectPeriod: 5000,
+    rejectUnauthorized: true
+  });
 
   client.on('connect', () => {
     espObserveSince = Date.now();
 
-    console.log('MQTT CONNECTED');
+    console.log(
+      'MQTT CONNECTED: flespi TLS:8883'
+    );
 
     client.subscribe(
       [
@@ -997,15 +1055,34 @@ async function start() {
   client.on('message', onMqttMessage);
 
   client.on('error', err => {
-    console.error('MQTT ERROR:', err.message);
+    console.error(
+      'MQTT ERROR:',
+      err.message
+    );
+  });
+
+  client.on('reconnect', () => {
+    console.log(
+      'MQTT RECONNECTING TO FLESPI...'
+    );
+  });
+
+  client.on('offline', () => {
+    console.warn(
+      'MQTT OFFLINE: Render mat ket noi broker'
+    );
+
+    syncEspStatusEvent();
   });
 
   client.on('close', () => {
     syncEspStatusEvent();
   });
 
-  // Kiem tra timeout heartbeat 2 giay mot lan.
-  setInterval(syncEspStatusEvent, 2000);
+  setInterval(
+    syncEspStatusEvent,
+    2000
+  );
 
   app.listen(PORT, () => {
     console.log(
